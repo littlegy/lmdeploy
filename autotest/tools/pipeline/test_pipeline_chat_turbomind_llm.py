@@ -1,7 +1,7 @@
 import os
 
 import pytest
-from utils.config_utils import get_communicator_list, get_turbomind_model_list, set_device_env_variable
+from utils.config_utils import get_communicator_list, set_device_env_variable, get_turbomind_model_list
 from utils.pipeline_chat import run_pipeline_chat_test
 
 

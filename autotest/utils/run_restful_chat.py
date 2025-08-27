@@ -7,8 +7,8 @@ import allure
 import psutil
 from openai import OpenAI
 from pytest_assume.plugin import assume
-from utils.config_utils import _is_bf16_supported_by_device, get_cuda_prefix_by_workerid, get_workerid
-from utils.get_run_config import get_command_with_extra
+from utils.config_utils import get_cuda_prefix_by_workerid, get_workerid, _is_bf16_supported_by_device
+from utils.get_run_config import get_command_with_extra 
 from utils.restful_return_check import assert_chat_completions_batch_return
 from utils.rule_condition_assert import assert_result
 
@@ -59,6 +59,10 @@ def start_restful_api(config, param, model, model_path, backend_type, worker_id)
                                  need_tp=True,
                                  cuda_prefix=cuda_prefix,
                                  extra=extra)
+    
+    device = os.environ.get('DEVICE', '')
+    if device:
+        cmd += f' --device {device}'
 
     device = os.environ.get('DEVICE', '')
     if device:

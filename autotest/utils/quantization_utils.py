@@ -2,6 +2,7 @@ import os
 import subprocess
 from subprocess import PIPE
 
+from lmdeploy.utils import is_bf16_supported
 from utils.config_utils import _is_bf16_supported_by_device
 
 
@@ -30,6 +31,11 @@ def quantization(config,
     else:
         return False, 'quantization type should in [awq, gptq, w8a8], \
             now the type is ' + quantization_type
+    
+    # Add device option if specified in environment
+    device = os.environ.get('DEVICE', '')
+    if device:
+        quantization_cmd += f' --device npu'
 
     # Add device option if specified in environment
     device = os.environ.get('DEVICE', '')

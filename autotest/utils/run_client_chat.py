@@ -3,6 +3,7 @@ from subprocess import PIPE, Popen
 
 from utils.config_utils import _is_bf16_supported_by_device
 from utils.get_run_config import get_command_with_extra, get_model_name
+from utils.config_utils import _is_bf16_supported_by_device
 from utils.rule_condition_assert import assert_result
 
 TEMPLATE = 'autotest/template.json'
@@ -29,14 +30,12 @@ def command_line_test(config,
             cmd += ' --model-format gptq'
     if case == 'base_testcase':
         cmd += ' --chat-template ' + TEMPLATE
-
+    
     # Add device option if specified in environment
     device = os.environ.get('DEVICE', '')
     if device:
-        cmd += f' --device {device} '
-        if device == 'ascend':
-            cmd += '--eager-mode '
-
+        cmd += f' --device {device}'
+        
     return command_test(config, [cmd], model_case, case, case_info, type == 'turbomind', worker_id=worker_id)
 
 
@@ -74,14 +73,12 @@ def hf_command_line_test(config,
 
     if case == 'base_testcase':
         cmd += ' --chat-template ' + TEMPLATE
-
+    
     # Add device option if specified in environment
     device = os.environ.get('DEVICE', '')
     if device:
-        cmd += f' --device {device} '
-        if device == 'ascend':
-            cmd += '--eager-mode '
-
+        cmd += f' --device {device}'
+        
     return command_test(config, [cmd], model_case, '_'.join(['hf', type, case]), case_info, True)
 
 

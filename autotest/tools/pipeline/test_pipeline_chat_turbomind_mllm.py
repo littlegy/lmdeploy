@@ -1,8 +1,7 @@
 import os
 
 import pytest
-from utils.config_utils import (get_communicator_list, get_cuda_id_by_workerid, get_turbomind_model_list,
-                                set_device_env_variable)
+from utils.config_utils import get_communicator_list, get_cuda_id_by_workerid, get_turbomind_model_list, set_device_env_variable
 from utils.pipeline_chat import run_pipeline_vl_chat_test
 
 BACKEND = 'turbomind'
@@ -178,6 +177,19 @@ def test_pipeline_chat_fallback_backend_kvint8_tp1(config, model, communicator, 
                                   'communicator': communicator
                               },
                               is_smoke=True)
+
+
+@pytest.mark.order(6)
+@pytest.mark.pipeline_chat
+@pytest.mark.flaky(reruns=0)
+@pytest.mark.gpu_num_2
+@pytest.mark.parametrize('model', ['meta-llama/Llama-3.2-11B-Vision-Instruct'])
+@pytest.mark.parametrize('communicator', get_communicator_list())
+def test_pipeline_chat_fallback_backend_tp2(config, model, communicator, worker_id):
+    if 'gw' in worker_id:
+        set_device_env_variable(worker_id, tp_num=2)
+        os.environ['MASTER_PORT'] = str(int(worker_id.replace('gw', '')) + 29500)
+    run_pipeline_vl_chat_test(config, model, BACKEND, worker_id, {'communicator': communicator}, is_smoke=True)
 
 
 @pytest.mark.order(6)
