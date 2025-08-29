@@ -1,7 +1,8 @@
 import os
 
 import pytest
-from utils.config_utils import get_communicator_list, get_cuda_id_by_workerid, get_turbomind_model_list, set_device_env_variable
+from utils.config_utils import (get_communicator_list, get_cuda_id_by_workerid, get_turbomind_model_list,
+                                set_device_env_variable)
 from utils.pipeline_chat import run_pipeline_vl_chat_test
 
 BACKEND = 'turbomind'
@@ -150,7 +151,10 @@ def test_pipeline_chat_kvint8_tp4(config, model, communicator, worker_id):
 @pytest.mark.pipeline_chat
 @pytest.mark.flaky(reruns=0)
 @pytest.mark.gpu_num_2
-@pytest.mark.parametrize('model', ['OpenGVLab/InternVL2-4B', 'THUDM/glm-4v-9b', 'THUDM/glm-4v-9b-inner-4bits'])
+@pytest.mark.parametrize('model', [
+    'OpenGVLab/InternVL2-4B', 'Qwen/Qwen2.5-VL-7B-Instruct', 'Qwen/Qwen2-VL-7B-Instruct-inner-4bits', 'THUDM/glm-4v-9b',
+    'THUDM/glm-4v-9b-inner-4bits'
+])
 @pytest.mark.parametrize('communicator', get_communicator_list())
 def test_pipeline_chat_fallback_backend_tp1(config, model, communicator, worker_id):
     if 'gw' in worker_id:
@@ -163,7 +167,10 @@ def test_pipeline_chat_fallback_backend_tp1(config, model, communicator, worker_
 @pytest.mark.pipeline_chat
 @pytest.mark.flaky(reruns=0)
 @pytest.mark.gpu_num_2
-@pytest.mark.parametrize('model', ['OpenGVLab/InternVL2-4B', 'THUDM/glm-4v-9b', 'THUDM/glm-4v-9b-inner-4bits'])
+@pytest.mark.parametrize('model', [
+    'OpenGVLab/InternVL2-4B', 'Qwen/Qwen2.5-VL-7B-Instruct', 'Qwen/Qwen2-VL-7B-Instruct-inner-4bits', 'THUDM/glm-4v-9b',
+    'THUDM/glm-4v-9b-inner-4bits'
+])
 @pytest.mark.parametrize('communicator', get_communicator_list())
 def test_pipeline_chat_fallback_backend_kvint8_tp1(config, model, communicator, worker_id):
     if 'gw' in worker_id:
