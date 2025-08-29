@@ -117,20 +117,7 @@ def run_pipeline_vl_chat_test(config,
         f.writelines('reproduce command: ' + cmd + '\n')
         print('reproduce command: ' + cmd)
         # quantization
-<<<<<<< HEAD
-        try:
-            response = subprocess.run([cmd],
-                                      shell=True,
-                                      capture_output=True,
-                                      text=True,
-                                      encoding='utf-8',
-                                      env=env,
-                                      timeout=600)
-        except subprocess.TimeoutExpired as e:
-            assert False, f'Test command timed out after 10 minutes: {e.cmd}'
-=======
         response = subprocess.run([cmd], shell=True, capture_output=True, text=True, encoding='utf-8', env=env)
->>>>>>> 28907ca3 (AOTOTEST: fix lint)
 
         output_text = response.stdout
         print(output_text)
