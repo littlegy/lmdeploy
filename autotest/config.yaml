@@ -6,6 +6,23 @@ benchmark_path: /nvme/qa_test_models/benchmark-reports
 dataset_path: /nvme/qa_test_models/datasets/ShareGPT_V3_unfiltered_cleaned_split.json
 env_tag: a100
 
+opencompass_dir: "/root/_wk/opencompass"
+work_dir: "/nvme/qa_test_models/eval_work"
+
+evaluation:
+  timeout: 7200
+  cleanup_temp: true
+
+# Chat模型专用评估配置
+chat_evaluation:
+  datasets: ["gsm8k", "race", "ifeval"]
+  config_file: "eval_config_chat.py"
+
+# Base模型专用评估配置
+base_evaluation:
+  datasets: ["gsm8k", "race", "gpqa", "winogrande"]
+  config_file: "eval_config_base.py"
+
 tp_config:
     Llama-4-Scout-17B-16E-Instruct: 4
     Meta-Llama-3-1-70B-Instruct: 4
@@ -13,6 +30,7 @@ tp_config:
     internlm2_5-20b-chat: 2
     internlm2_5-20b: 2
     internlm2_5-7b-chat-1m: 4
+    internlm2_5-7b: 4
     InternVL3-38B: 2
     InternVL2_5-26B: 2
     InternVL2_5-26B-MPO: 2
@@ -382,3 +400,8 @@ benchmark_model:
     - deepseek-ai/DeepSeek-V2-Lite-Chat
     - openai/gpt-oss-20b
     - openai/gpt-oss-120b
+
+
+evaluate_model:
+  - Qwen/Qwen2.5-14B
+  - internlm/internlm2_5-7b

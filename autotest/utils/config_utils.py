@@ -227,6 +227,46 @@ def get_benchmark_model_list(tp_num, is_longtext: bool = False, kvint_list: list
     return result
 
 
+def get_evaluate_model_list(tp_num, is_longtext: bool = False):
+    """Get model list for evaluation tests without quantized models.
+
+    Args:
+        tp_num: Number of tensor parallelism
+        is_longtext: Whether to use longtext models
+
+    Returns:
+        list: List of model configurations without quantized models
+    """
+    config = get_config()
+
+    # Get base model list
+    if is_longtext:
+        case_list_base = [item for item in config.get('longtext_model', [])]
+    else:
+        case_list_base = config.get('evaluate_model', config.get('benchmark_model', []))
+
+    # Filter models by TP number first
+    model_list = [item for item in case_list_base if get_tp_num(config, item) == tp_num]
+
+    result = []
+    if len(model_list) > 0:
+        # Add TurboMind models (excluding quantized models)
+        result += [{
+            'model': item,
+            'backend': 'turbomind',
+            'tp_num': tp_num
+        } for item in model_list if item in config.get('turbomind_chat_model', [])]
+
+        # Add PyTorch models (excluding quantized models)
+        result += [{
+            'model': item,
+            'backend': 'pytorch',
+            'tp_num': tp_num
+        } for item in model_list if item in config.get('pytorch_chat_model', [])]
+
+    return result
+
+
 def get_workerid(worker_id):
     if worker_id is None or 'gw' not in worker_id:
         return None
