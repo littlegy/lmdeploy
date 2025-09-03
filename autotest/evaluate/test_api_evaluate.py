@@ -9,8 +9,8 @@ def prepare_environment(request, config, worker_id):
     param = request.param
     model = param['model']
     backend = param['backend']
+    print(param['model'], param['backend'], param['extra'])
     model_path = config.get('model_path') + '/' + model
-
     pid, startRes = start_restful_api(config, param, model, model_path, backend, worker_id)
     yield param
     stop_restful_api(pid, startRes, param)
@@ -21,13 +21,13 @@ def getModelList(tp_num):
     new_model_list = []
     for model in model_list:
         if model['backend'] == 'pytorch':
-            model['extra'] = '--max-batch-size 256 --cache-max-entry-count 0.8'
+            model['extra'] += '--max-batch-size 256 --cache-max-entry-count 0.8'
         elif 'Llama-2' in model['model']:
-            model['extra'] = '--max-batch-size 256 --cache-max-entry-count 0.95'
+            model['extra'] += '--max-batch-size 256 --cache-max-entry-count 0.95'
         elif 'internlm2' in model['model']:
-            model['extra'] = '--max-batch-size 256 --cache-max-entry-count 0.9'
+            model['extra'] += '--max-batch-size 256 --cache-max-entry-count 0.9'
         else:
-            model['extra'] = '--max-batch-size 256'
+            model['extra'] += '--max-batch-size 256'
         model['cuda_prefix'] = None
         new_model_list.append(model)
     return new_model_list

@@ -4,10 +4,8 @@ from opencompass.models import OpenAISDK
 with read_base():
     # 导入数据集配置
     from opencompass.configs.datasets.gpqa.gpqa_openai_simple_evals_gen_5aeece import gpqa_datasets  # noqa: F401, E501
-    from opencompass.configs.datasets.gsm8k.gsm8k_gen_17d0dc import gsm8k_datasets  # noqa: F401, E501
-    from opencompass.configs.datasets.race.race_ppl import race_datasets  # noqa: F401, E501
-    from opencompass.configs.datasets.winogrande.winogrande_5shot_ll_252f01 import \
-        winogrande_datasets  # noqa: F401, E501
+    from opencompass.configs.datasets.IFEval.IFEval_gen_353ae7 import ifeval_datasets  # noqa: F401, E501
+    from opencompass.configs.datasets.math.math_0shot_gen_11c4b5 import math_datasets  # noqa: F401, E501
 
 datasets = sum([v for k, v in locals().items() if k.endswith('_datasets')], [])
 
@@ -32,18 +30,19 @@ models = [
         path=MODEL_PATH,
         meta_template=api_meta_template,
         max_out_len=2048,
-        batch_size=16,
-        run_cfg=dict(num_gpus=1, communicator='native'),
+        batch_size=1000,
+        run_cfg=dict(num_gpus=4),
+        engine_config=dict(communicator='native', max_batch_size=512),
         temperature=0.1,
+        backend='turbomind',
     )
 ]
 
 summarizer = dict(
     dataset_abbrs=[
-        ['gsm8k', 'accuracy'],
         ['GPQA_diamond', 'accuracy'],
-        ['race-high', 'accuracy'],
-        ['winogrande', 'accuracy'],
+        ['math', 'accuracy'],
+        ['IFEval', 'Prompt-level-strict-accuracy'],
     ],
     summary_groups=sum([v for k, v in locals().items() if k.endswith('_summary_groups')], []),
 )
