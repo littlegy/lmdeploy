@@ -227,6 +227,83 @@ def get_benchmark_model_list(tp_num, is_longtext: bool = False, kvint_list: list
     return result
 
 
+def get_chat_template(model_name):
+    """根据模型名称返回对应的chat template."""
+    # 模型名称到chat template的精确映射
+    template_mapping = {
+        # Llama系列
+        'meta-llama/lama-3.2-1b-instruct': 'llama3_2',
+        'meta-llama/lama-3.2-3b-instruct': 'llama3_2',
+        'meta-llama/meta-llama-3-1-8b-instruct': 'llama3_1',
+        'meta-llama/meta-llama-3-1-8b-instruct-awq': 'llama3_1',
+        'meta-llama/meta-llama-3-1-70b-instruct': 'llama3_1',
+        'meta-llama/meta-llama-3-8b-instruct': 'llama3',
+        'meta-llama/lama-4-scout-17b-16e-instruct': 'llama4',
+        'meta-llama/lama-3.2-11b-vision-instruct': 'llama3_2',
+
+        # InternLM系列
+        'internlm/intern-s1': 'internlm',
+        'internlm/intern-s1-mini': 'internlm',
+        'internlm/internlm3-8b-instruct': 'internlm3',
+        'internlm/internlm3-8b-instruct-awq': 'internlm3',
+        'internlm/internlm2_5-7b': 'internlm2',
+        'internlm/internlm2_5-1_8b': 'internlm2',
+        'internlm/internlm2_5-20b': 'internlm2',
+
+        # Qwen系列
+        'qwen/qwen3-0.6b': 'qwen3',
+        'qwen/qwen3-4b': 'qwen3',
+        'qwen/qwen3-8b-base': 'qwen3',
+        'qwen/qwen3-32b': 'qwen3',
+        'qwen/qwen3-30b-a3b': 'qwen3',
+        'qwen/qwen3-30b-a3b-base': 'qwen3',
+        'qwen/qwen3-235b-a22b': 'qwen3',
+        'qwen/qwen2.5-0.5b-instruct': 'qwen2d5',
+        'qwen/qwen2.5-7b-instruct': 'qwen2d5',
+        'qwen/qwen2.5-14b': 'qwen2d5',
+        'qwen/qwen2.5-32b-instruct': 'qwen2d5',
+        'qwen/qwen2.5-72b-instruct': 'qwen2d5',
+        'qwen/qwen2-57b-a14b-instruct-gptq-int4': 'qwen2d5',
+
+        # Mistral系列
+        'mistralai/mistral-7b-instruct-v0.3': 'mistral',
+        'mistralai/mistral-nemo-instruct-2407': 'mistral',
+        'mistralai/mixtral-8x7b-instruct-v0.1': 'mixtral',
+
+        # DeepSeek系列
+        'deepseek-ai/deepseek-r1-distill-llama-8b': 'deepseek-r1',
+        'deepseek-ai/deepseek-r1-distill-qwen-32b': 'deepseek-r1',
+        'deepseek-ai/deepseek-coder-1.3b-instruct': 'deepseek-coder',
+
+        # 其他模型
+        '01-ai/yi-vl-6b': 'yi-vl',
+        'liuhaotian/llava-v1.5-13b': 'llava-v1',
+        'liuhaotian/llava-v1.6-vicuna-7b': 'llava-v1',
+        'codellama/codellama-7b-instruct-hf': 'codellama',
+        'codellama/codellama-7b-hf': 'codellama',
+        'thudm/chatglm2-6b': 'chatglm',
+        'thudm/glm-4v-9b': 'glm4',
+        'thudm/codegeex4-all-9b': 'codegeex4',
+        'openbmb/minicpm-llama3-v-2_5': 'minicpmv-2d6',
+        'openbmb/minicpm-v-2_6': 'minicpmv-2d6',
+        'allenai/molmo-7b-d-0924': 'molmo',
+        'openai/gpt-oss-20b': 'base',
+        'openai/gpt-oss-120b': 'base',
+        'google/gemma-3-12b-it': 'gemma',
+        'google/gemma-2-9b-it': 'gemma',
+        'google/gemma-2-27b-it': 'gemma',
+        'google/gemma-7b-it': 'gemma',
+        'microsoft/phi-4-mini-instruct': 'phi-4',
+        'microsoft/phi-3.5-mini-instruct': 'phi-3',
+        'microsoft/phi-3.5-vision-instruct': 'phi-3',
+        'microsoft/phi-3-mini-4k-instruct': 'phi-3',
+        'microsoft/phi-3-vision-128k-instruct': 'phi-3',
+        'bigcode/starcoder2-7b': 'base'
+    }
+
+    return template_mapping.get(model_name, 'base')
+
+
 def get_evaluate_model_list(tp_num, is_longtext: bool = False):
     """Get model list for evaluation tests without quantized models.
 
@@ -250,19 +327,48 @@ def get_evaluate_model_list(tp_num, is_longtext: bool = False):
 
     result = []
     if len(model_list) > 0:
-        # Add TurboMind models (excluding quantized models)
-        result += [{
-            'model': item,
-            'backend': 'turbomind',
-            'tp_num': tp_num
-        } for item in model_list if item in config.get('turbomind_chat_model', [])]
+        # Get TurboMind model sets
+        turbomind_chat_models = set(config.get('turbomind_chat_model', []))
+        turbomind_base_models = set(config.get('turbomind_base_model', []))
+
+        # Add TurboMind models with different communicators
+        for item in model_list:
+            if item in turbomind_chat_models or item in turbomind_base_models:
+                # Determine communicators based on TP number
+                communicators = ['native'] if tp_num == 1 else ['native', 'nccl']
+
+                for communicator in communicators:
+                    model_config = {
+                        'model': item,
+                        'backend': 'turbomind',
+                        'tp_num': tp_num,
+                        'communicator': communicator
+                    }
+
+                    # Add chat template for base models
+                    if item in turbomind_base_models:
+                        chat_template = get_chat_template(item)
+                        if chat_template and chat_template != 'base':
+                            model_config['extra'] = f'--chat-template {chat_template} '
+
+                    result.append(model_config)
 
         # Add PyTorch models (excluding quantized models)
-        result += [{
-            'model': item,
-            'backend': 'pytorch',
-            'tp_num': tp_num
-        } for item in model_list if item in config.get('pytorch_chat_model', [])]
+        pytorch_chat_models = set(config.get('pytorch_chat_model', []))
+        pytorch_base_models = set(config.get('pytorch_base_model', []))
+        all_pytorch_models = pytorch_chat_models.union(pytorch_base_models)
+
+        for item in model_list:
+            if item in all_pytorch_models:
+                model_config = {'model': item, 'backend': 'pytorch', 'tp_num': tp_num}
+
+                # Add chat template for PyTorch base models
+                if item in pytorch_base_models:
+                    chat_template = get_chat_template(item)
+                    if chat_template and chat_template != 'base':
+                        model_config['extra'] = f'--chat-template {chat_template} '
+
+                result.append(model_config)
 
     return result
 
