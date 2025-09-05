@@ -112,7 +112,7 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0'):
             print(f'Modified config saved to: {temp_config_path}')
 
             # 构建OpenCompass评估命令，使用修改后的配置文件
-            cmd = ['python', 'run.py', temp_config_file, '-w', work_dir]
+            cmd = ['python', temp_config_file, '-w', work_dir]
 
             print(f"Running command: {' '.join(cmd)}")
             print(f'Work directory: {work_dir}')
