@@ -13,21 +13,7 @@ on:
         description: 'Set branch or tag or commit id. Default is "main"'
         type: string
         default: 'main'
-      oc_repo_org:
-        required: false
-        description: 'Tested repository organization name. Default is open-compass/opencompass'
-        type: string
-        default: 'open-compass/opencompass'
-      oc_repo_ref:
-        required: false
-        description: 'Set branch or tag or commit id. Default is "main"'
-        type: string
-        default: 'main'
-      offline_mode:
-        required: true
-        description: 'Whether start a offline mode, if true, you should prepare code and whl package by yourself'
-        type: boolean
-        default: false
+
 
 env:
   HOST_PIP_CACHE_DIR: /nvme/github-actions/pip-cache
@@ -43,49 +29,46 @@ env:
   DEEPSEEK_VL: /nvme/qa_test_models/offline_pkg/DeepSeek-VL
 
 jobs:
-  linux-build:
-    if: ${{ !cancelled() }}
-    strategy:
-      matrix:
-        pyver: [py310]
-    runs-on: ubuntu-latest
-    env:
-      PYTHON_VERSION: ${{ matrix.pyver }}
-      PLAT_NAME: manylinux2014_x86_64
-      DOCKER_TAG: cuda12.4
-      OUTPUT_FOLDER: cuda12.4_dist_${{ github.run_id }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          repository: ${{ github.event.inputs.repo_org || 'InternLM/lmdeploy' }}
-          ref: ${{github.event.inputs.repo_ref || 'main'}}
-      - name: Build
-        run: |
-          echo ${PYTHON_VERSION}
-          echo ${PLAT_NAME}
-          echo ${DOCKER_TAG}
-          echo ${OUTPUT_FOLDER}
-          echo ${GITHUB_RUN_ID}
-          # remove -it
-          sed -i 's/docker run --rm -it/docker run --rm/g' builder/manywheel/build_wheel.sh
-          bash builder/manywheel/build_wheel.sh ${PYTHON_VERSION} ${PLAT_NAME} ${DOCKER_TAG} ${OUTPUT_FOLDER}
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          if-no-files-found: error
-          path: builder/manywheel/${{ env.OUTPUT_FOLDER }}
-          retention-days: 1
-          name: my-artifact-${{ github.run_id }}-${{ matrix.pyver }}
+  # linux-build:
+  #   if: ${{ !cancelled() }}
+  #   strategy:
+  #     matrix:
+  #       pyver: [py310]
+  #   runs-on: ubuntu-latest
+  #   env:
+  #     PYTHON_VERSION: ${{ matrix.pyver }}
+  #     PLAT_NAME: manylinux2014_x86_64
+  #     DOCKER_TAG: cuda12.4
+  #     OUTPUT_FOLDER: cuda12.4_dist_${{ github.run_id }}
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v3
+  #       with:
+  #         repository: ${{ github.event.inputs.repo_org || 'InternLM/lmdeploy' }}
+  #         ref: ${{github.event.inputs.repo_ref || 'main'}}
+  #     - name: Build
+  #       run: |
+  #         echo ${PYTHON_VERSION}
+  #         echo ${PLAT_NAME}
+  #         echo ${DOCKER_TAG}
+  #         echo ${OUTPUT_FOLDER}
+  #         echo ${GITHUB_RUN_ID}
+  #         # remove -it
+  #         sed -i 's/docker run --rm -it/docker run --rm/g' builder/manywheel/build_wheel.sh
+  #         bash builder/manywheel/build_wheel.sh ${PYTHON_VERSION} ${PLAT_NAME} ${DOCKER_TAG} ${OUTPUT_FOLDER}
+  #     - name: Upload Artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         if-no-files-found: error
+  #         path: builder/manywheel/${{ env.OUTPUT_FOLDER }}
+  #         retention-days: 1
+  #         name: my-artifact-${{ github.run_id }}-${{ matrix.pyver }}
 
   test_evaluation:
-    needs: linux-build
+    # needs: linux-build
     if: ${{ !cancelled() }}
     runs-on: [self-hosted, test-140]
     timeout-minutes: 120
-    defaults:
-      run:
-        working-directory: /root/_wk
     strategy:
       fail-fast: false
     container:
@@ -105,7 +88,6 @@ jobs:
     steps:
       - name: Create and change to _wk directory
         run: |
-          mkdir -p /root/_wk
           echo "Working directory set to: $(pwd)"
 
       - name: Clone repository
@@ -116,7 +98,7 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: my-artifact-${{ github.run_id }}-py310
+          name: my-artifact-17485706612-py310
 
       - name: Install lmdeploy - dependency
         run: |
