@@ -102,7 +102,7 @@ jobs:
 
       - name: Install lmdeploy - dependency
         run: |
-          python3 -m pip install -r /root/models/offline_pkg/requirements.txt
+          python3 -m pip install -r /mnt/187/offline_pkg/requirements.txt
 
       - name: Install lmdeploy
         run: |
