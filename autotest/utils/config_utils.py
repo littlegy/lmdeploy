@@ -235,14 +235,14 @@ def get_chat_template(model_name):
         # InternLM系列
         'internlm/intern-s1': 'internlm',
         'internlm/intern-s1-mini': 'internlm',
-        'internlm/internlm2_5-7b': 'internlm2',
-        'internlm/internlm2_5-1_8b': 'internlm2',
-        'internlm/internlm2_5-20b': 'internlm2',
+        'internlm/internlm2_5-7b': 'internlm',
+        'internlm/internlm2_5-1_8b': 'internlm',
+        'internlm/internlm2_5-20b': 'internlm',
 
         # Qwen系列
-        'Qwen/Qwen2.5-14B': 'qwen2d5',
-        'Qwen/Qwen2.5-7B': 'qwen2d5',
-        'Qwen/Qwen2-7B': 'qwen2'
+        'Qwen/Qwen2.5-14B': 'hf',
+        'Qwen/Qwen2.5-7B': 'hf',
+        'Qwen/Qwen2-7B': 'hf'
     }
 
     return template_mapping.get(model_name, 'base')
