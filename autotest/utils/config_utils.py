@@ -285,7 +285,8 @@ def get_evaluate_model_list(tp_num, is_longtext: bool = False):
                         'model': item,
                         'backend': 'turbomind',
                         'tp_num': tp_num,
-                        'communicator': communicator
+                        'communicator': communicator,
+                        'extra': ''  # 默认为空字符串
                     }
 
                     # Add chat template for base models
@@ -303,7 +304,12 @@ def get_evaluate_model_list(tp_num, is_longtext: bool = False):
 
         for item in model_list:
             if item in all_pytorch_models:
-                model_config = {'model': item, 'backend': 'pytorch', 'tp_num': tp_num}
+                model_config = {
+                    'model': item,
+                    'backend': 'pytorch',
+                    'tp_num': tp_num,
+                    'extra': ''  # 默认为空字符串
+                }
 
                 # Add chat template for PyTorch base models
                 if item in pytorch_base_models:
