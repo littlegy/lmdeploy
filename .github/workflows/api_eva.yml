@@ -102,14 +102,12 @@ jobs:
 
       - name: Install lmdeploy - dependency
         run: |
-          echo $(pwd)
           python3 -m pip install sentence_transformers==2.2.2 opencv-python-headless<4.10 --no-deps
           python3 -m pip install numpy==1.26.4 pandas pynvml --no-deps
           python3 -m pip install -r ${{ env.OFFLINE_REQUIREMENTS }}
 
       - name: Install lmdeploy
         run: |
-          # python3 -m pip uninstall lmdeploy -y && python3 -m pip install lmdeploy-*.whl --no-deps
           python3 -m pip install -r requirements/test.txt
 
       - name: Install opencompass
