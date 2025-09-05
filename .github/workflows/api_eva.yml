@@ -72,7 +72,7 @@ jobs:
     strategy:
       fail-fast: false
     container:
-      image: openmmlab/lmdeploy:latest
+      image: openmmlab/lmdeploy:latest-cu12.8
       options: "--gpus=all --ipc=host --user root -e PIP_CACHE_DIR=/root/.cache/pip -e NVIDIA_DISABLE_REQUIRE=1 --pull never"
       volumes:
         - /nvme/github-actions/pip-cache:/root/.cache/pip
@@ -130,8 +130,8 @@ jobs:
           ln -s /mnt/187/opencompass-data/data ./data
           pytest autotest/evaluate/test_api_evaluate.py::test_restful_tp8 -s
 
-      # - name: Clear workspace
-      #   if: always()
-      #   run: |
-      #     export workdir=$(pwd)
-      #     rm -rf $workdir/*
+      - name: Clear workspace
+        if: always()
+        run: |
+          export workdir=$(pwd)
+          rm -rf $workdir/*
