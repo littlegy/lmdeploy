@@ -102,8 +102,7 @@ jobs:
 
       - name: Install lmdeploy - dependency
         run: |
-          python3 -m pip install "sentence_transformers==2.2.2" --no-deps
-          python3 -m pip install -r requirements_cuda.txt
+          python3 -m pip install -r /root/models/offline_pkg/requirements.txt
 
       - name: Install lmdeploy
         run: |
