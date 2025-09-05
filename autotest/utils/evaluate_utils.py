@@ -66,16 +66,6 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0'):
         print(f'Model type: {model_type}')
         print(f'Config file: {config_file}')
 
-        # 获取OpenCompass工作目录
-        opencompass_dir = config.get('opencompass_dir', './evaluate')
-        if not os.path.isabs(opencompass_dir):
-            opencompass_dir = os.path.abspath(opencompass_dir)
-
-        if not os.path.exists(opencompass_dir):
-            return False, f'OpenCompass directory not found: {opencompass_dir}'
-
-        print(f'OpenCompass directory: {opencompass_dir}')
-
         # 获取日志路径
         log_path = config.get('log_path', '/nvme/qa_test_models/autotest_model/log')
         os.makedirs(log_path, exist_ok=True)
@@ -88,9 +78,6 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0'):
         work_dir = tempfile.mkdtemp(dir=dst_path)
 
         try:
-            # 切换到OpenCompass目录
-            os.chdir(opencompass_dir)
-            print(f'Changed to directory: {opencompass_dir}')
 
             if not os.path.exists(config_file):
                 return False, f'Config file {config_file} not found in any expected location'
@@ -118,7 +105,7 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0'):
 
             # 生成新的临时配置文件名
             temp_config_file = f'temp_{model_name.replace("/", "_")}_{os.getpid()}.py'
-            temp_config_path = os.path.join(opencompass_dir, temp_config_file)
+            temp_config_path = os.path.join(log_path, temp_config_file)
 
             # 保存修改后的配置
             cfg.dump(temp_config_path)

@@ -128,7 +128,7 @@ jobs:
       - name: Setup paths for evaluation
         run: |
           ln -s /mnt/187/opencompass-data/data ./data
-          pytest autotest/evaluate/test_api_evaluate.py::test_restful_tp8 -s
+          pytest autotest/evaluate/test_api_evaluate.py::test_restful_tp4 -s
 
       - name: Clear workspace
         if: always()
