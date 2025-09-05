@@ -9,6 +9,7 @@ with read_base():
     from opencompass.configs.datasets.winogrande.winogrande_5shot_ll_252f01 import \
         winogrande_datasets  # noqa: F401, E501
 
+race_datasets = [race_datasets[1]]
 datasets = sum([v for k, v in locals().items() if k.endswith('_datasets')], [])
 
 # 定义模型配置
