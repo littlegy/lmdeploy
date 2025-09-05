@@ -120,6 +120,7 @@ jobs:
 
       - name: Install lmdeploy - dependency
         run: |
+          echo $(pwd)
           python3 -m pip install sentence_transformers==2.2.2 opencv-python-headless<4.10 --no-deps
           python3 -m pip install numpy==1.26.4 pandas pynvml --no-deps
           python3 -m pip install -r ${{ env.OFFLINE_REQUIREMENTS }}
@@ -152,8 +153,8 @@ jobs:
           ln -s /mnt/187/opencompass-data/data ./data
           pytest autotest/evaluate/test_api_evaluate.py::test_restful_tp8 -s
 
-      - name: Clear workspace
-        if: always()
-        run: |
-          export workdir=$(pwd)
-          rm -rf $workdir/*
+      # - name: Clear workspace
+      #   if: always()
+      #   run: |
+      #     export workdir=$(pwd)
+      #     rm -rf $workdir/*
