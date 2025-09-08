@@ -5,6 +5,8 @@ import tempfile
 
 from mmengine.config import Config
 
+DEFAULT_PORT = 23333
+
 
 def get_model_type(model_name):
     """根据模型名称确定模型类型（chat/base/vl）"""
@@ -24,19 +26,7 @@ def get_model_type(model_name):
         return 'base'
 
 
-def restful_test(config, run_id, prepare_environment, worker_id='gw0'):
-    """RESTful API测试函数，启动LMDeploy服务并运行OpenCompass评估.
-
-    Args:
-        config: 测试配置字典，来自config.yaml
-        run_id: 运行ID
-        prepare_environment: 已经通过fixture准备好的环境参数
-        worker_id: 工作进程ID，默认为"gw0"
-
-    Returns:
-        tuple: (success: bool, message: str)
-    """
-
+def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFAULT_PORT):
     try:
         # 从prepare_environment中获取模型信息
         model_name = prepare_environment['model']
@@ -88,13 +78,13 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0'):
             # 动态修改配置参数
             cfg.MODEL_NAME = model_name
             cfg.MODEL_PATH = model_path
-            cfg.API_BASE = 'http://127.0.0.1:23333/v1'
+            cfg.API_BASE = f'http://127.0.0.1:{port}/v1'
 
             # 修改模型配置
             if cfg.models and len(cfg.models) > 0:
                 model_cfg = cfg.models[0]
                 model_cfg['abbr'] = f'{model_name}-lmdeploy-api'
-                model_cfg['openai_api_base'] = 'http://127.0.0.1:23333/v1'
+                model_cfg['openai_api_base'] = f'http://127.0.0.1:{port}/v1'
                 model_cfg['path'] = model_path
                 model_cfg['run_cfg']['num_gpus'] = tp_num
                 if 'backend' in model_cfg:
@@ -112,7 +102,7 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0'):
             print(f'Modified config saved to: {temp_config_path}')
 
             # 构建OpenCompass评估命令，使用修改后的配置文件
-            cmd = ['python', temp_config_path, '-w', work_dir]
+            cmd = ['opencompass', temp_config_path, '-w', work_dir]
 
             print(f"Running command: {' '.join(cmd)}")
             print(f'Work directory: {work_dir}')

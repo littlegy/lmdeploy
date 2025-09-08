@@ -6,7 +6,6 @@ benchmark_path: /nvme/qa_test_models/benchmark-reports
 dataset_path: /nvme/qa_test_models/datasets/ShareGPT_V3_unfiltered_cleaned_split.json
 env_tag: a100
 
-opencompass_dir: "/__w/lmdeploy/lmdeploy/opencompass"
 
 tp_config:
     Llama-4-Scout-17B-16E-Instruct: 4
