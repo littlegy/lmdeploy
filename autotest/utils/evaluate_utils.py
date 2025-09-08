@@ -142,13 +142,6 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
                     evaluation_failed = True
                     break
 
-            # 清理临时配置文件
-            try:
-                os.remove(temp_config_path)
-                print(f'Cleaned up temporary config file: {temp_config_path}')
-            except Exception as e:
-                print(f'Warning: Failed to clean up temporary config file: {e}')
-
             # 判断是否成功 (优化后的判断逻辑)
             if result.returncode == 0 and not evaluation_failed:
                 return True, f'Evaluation completed successfully for {model_name} ({model_type})'
