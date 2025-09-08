@@ -1,7 +1,9 @@
 import pytest
-from utils.config_utils import get_evaluate_model_list
+from utils.config_utils import get_evaluate_model_list, get_workerid
 from utils.evaluate_utils import restful_test
 from utils.run_restful_chat import start_restful_api, stop_restful_api
+
+DEFAULT_PORT = 23333
 
 
 @pytest.fixture(scope='function', autouse=True)
@@ -37,7 +39,14 @@ def getModelList(tp_num):
 @pytest.mark.flaky(reruns=0)
 @pytest.mark.parametrize('prepare_environment', getModelList(tp_num=1), indirect=True)
 def test_restful_tp1(config, run_id, prepare_environment, worker_id):
-    result, msg = restful_test(config, run_id, prepare_environment, worker_id=worker_id)
+    if get_workerid(worker_id) is None:
+        result, msg = restful_test(config, run_id, prepare_environment, worker_id=worker_id)
+    else:
+        result, msg = restful_test(config,
+                                   run_id,
+                                   prepare_environment,
+                                   worker_id=worker_id,
+                                   port=DEFAULT_PORT + get_workerid(worker_id))
 
     assert result, msg
 
@@ -46,7 +55,14 @@ def test_restful_tp1(config, run_id, prepare_environment, worker_id):
 @pytest.mark.flaky(reruns=0)
 @pytest.mark.parametrize('prepare_environment', getModelList(tp_num=2), indirect=True)
 def test_restful_tp2(config, run_id, prepare_environment, worker_id):
-    result, msg = restful_test(config, run_id, prepare_environment, worker_id=worker_id)
+    if get_workerid(worker_id) is None:
+        result, msg = restful_test(config, run_id, prepare_environment, worker_id=worker_id)
+    else:
+        result, msg = restful_test(config,
+                                   run_id,
+                                   prepare_environment,
+                                   worker_id=worker_id,
+                                   port=DEFAULT_PORT + get_workerid(worker_id))
 
     assert result, msg
 
@@ -55,7 +71,14 @@ def test_restful_tp2(config, run_id, prepare_environment, worker_id):
 @pytest.mark.flaky(reruns=0)
 @pytest.mark.parametrize('prepare_environment', getModelList(tp_num=4), indirect=True)
 def test_restful_tp4(config, run_id, prepare_environment, worker_id):
-    result, msg = restful_test(config, run_id, prepare_environment, worker_id=worker_id)
+    if get_workerid(worker_id) is None:
+        result, msg = restful_test(config, run_id, prepare_environment, worker_id=worker_id)
+    else:
+        result, msg = restful_test(config,
+                                   run_id,
+                                   prepare_environment,
+                                   worker_id=worker_id,
+                                   port=DEFAULT_PORT + get_workerid(worker_id))
 
     assert result, msg
 
@@ -64,6 +87,13 @@ def test_restful_tp4(config, run_id, prepare_environment, worker_id):
 @pytest.mark.flaky(reruns=0)
 @pytest.mark.parametrize('prepare_environment', getModelList(tp_num=8), indirect=True)
 def test_restful_tp8(config, run_id, prepare_environment, worker_id):
-    result, msg = restful_test(config, run_id, prepare_environment, worker_id=worker_id)
+    if get_workerid(worker_id) is None:
+        result, msg = restful_test(config, run_id, prepare_environment, worker_id=worker_id)
+    else:
+        result, msg = restful_test(config,
+                                   run_id,
+                                   prepare_environment,
+                                   worker_id=worker_id,
+                                   port=DEFAULT_PORT + get_workerid(worker_id))
 
     assert result, msg

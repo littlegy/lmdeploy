@@ -29,43 +29,43 @@ env:
   DEEPSEEK_VL: /nvme/qa_test_models/offline_pkg/DeepSeek-VL
 
 jobs:
-  # linux-build:
-  #   if: ${{ !cancelled() }}
-  #   strategy:
-  #     matrix:
-  #       pyver: [py310]
-  #   runs-on: ubuntu-latest
-  #   env:
-  #     PYTHON_VERSION: ${{ matrix.pyver }}
-  #     PLAT_NAME: manylinux2014_x86_64
-  #     DOCKER_TAG: cuda12.4
-  #     OUTPUT_FOLDER: cuda12.4_dist_${{ github.run_id }}
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v3
-  #       with:
-  #         repository: ${{ github.event.inputs.repo_org || 'InternLM/lmdeploy' }}
-  #         ref: ${{github.event.inputs.repo_ref || 'main'}}
-  #     - name: Build
-  #       run: |
-  #         echo ${PYTHON_VERSION}
-  #         echo ${PLAT_NAME}
-  #         echo ${DOCKER_TAG}
-  #         echo ${OUTPUT_FOLDER}
-  #         echo ${GITHUB_RUN_ID}
-  #         # remove -it
-  #         sed -i 's/docker run --rm -it/docker run --rm/g' builder/manywheel/build_wheel.sh
-  #         bash builder/manywheel/build_wheel.sh ${PYTHON_VERSION} ${PLAT_NAME} ${DOCKER_TAG} ${OUTPUT_FOLDER}
-  #     - name: Upload Artifacts
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         if-no-files-found: error
-  #         path: builder/manywheel/${{ env.OUTPUT_FOLDER }}
-  #         retention-days: 1
-  #         name: my-artifact-${{ github.run_id }}-${{ matrix.pyver }}
+  linux-build:
+    if: ${{ !cancelled() }}
+    strategy:
+      matrix:
+        pyver: [py310]
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: ${{ matrix.pyver }}
+      PLAT_NAME: manylinux2014_x86_64
+      DOCKER_TAG: cuda12.4
+      OUTPUT_FOLDER: cuda12.4_dist_${{ github.run_id }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repo_org || 'InternLM/lmdeploy' }}
+          ref: ${{github.event.inputs.repo_ref || 'main'}}
+      - name: Build
+        run: |
+          echo ${PYTHON_VERSION}
+          echo ${PLAT_NAME}
+          echo ${DOCKER_TAG}
+          echo ${OUTPUT_FOLDER}
+          echo ${GITHUB_RUN_ID}
+          # remove -it
+          sed -i 's/docker run --rm -it/docker run --rm/g' builder/manywheel/build_wheel.sh
+          bash builder/manywheel/build_wheel.sh ${PYTHON_VERSION} ${PLAT_NAME} ${DOCKER_TAG} ${OUTPUT_FOLDER}
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: error
+          path: builder/manywheel/${{ env.OUTPUT_FOLDER }}
+          retention-days: 1
+          name: my-artifact-${{ github.run_id }}-${{ matrix.pyver }}
 
   test_evaluation:
-    # needs: linux-build
+    needs: linux-build
     if: ${{ !cancelled() }}
     runs-on: [self-hosted, test-140]
     timeout-minutes: 120
@@ -95,19 +95,18 @@ jobs:
         with:
           repository: ${{ github.event.inputs.repo_org || 'InternLM/lmdeploy' }}
           ref: ${{github.event.inputs.repo_ref || 'main'}}
-      # - name: Download Artifacts
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: my-artifact-17485706612-py310
-
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: my-artifact-${{ github.run_id }}-py310
       - name: Install lmdeploy - dependency
         run: |
           python3 -m pip install -r /mnt/187/offline_pkg/requirements.txt
 
       - name: Install lmdeploy
         run: |
+          python3 -m pip install lmdeploy-*.whl --no-deps
           python3 -m pip install -r requirements/test.txt
-
       - name: Install opencompass
         run: |
           git clone --depth=1 https://github.com/open-compass/opencompass.git
@@ -128,7 +127,7 @@ jobs:
       - name: Setup paths for evaluation
         run: |
           ln -s /mnt/187/opencompass-data/data ./data
-          pytest autotest/evaluate/test_api_evaluate.py::test_restful_tp4 -s
+          pytest autotest/evaluate/test_api_evaluate.py  -m 'gpu_num_2 and not pr_test' -n 4 --alluredir=${{env.REPORT_DIR}}
 
       - name: Clear workspace
         if: always()
