@@ -31,10 +31,8 @@ models = [
         meta_template=api_meta_template,
         max_out_len=2048,
         batch_size=1000,
-        run_cfg=dict(num_gpus=4),
-        engine_config=dict(communicator='native', max_batch_size=512),
+        run_cfg=dict(num_gpus=1, communicator='native'),
         temperature=0.1,
-        backend='turbomind',
     )
 ]
 
