@@ -19,7 +19,7 @@ def prepare_environment(request, config, worker_id):
 
 
 def getModelList(tp_num):
-    model_list = get_evaluate_model_list(tp_num)
+    model_list = get_evaluate_model_list(tp_num, kvint_list=[4, 8])
     new_model_list = []
     for model in model_list:
         if model['backend'] == 'pytorch':
