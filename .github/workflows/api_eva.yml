@@ -127,7 +127,7 @@ jobs:
       - name: Setup paths for evaluation
         run: |
           ln -s /mnt/187/opencompass-data/data ./data
-          pytest autotest/evaluate/test_api_evaluate.py  -m 'gpu_num_2 and not pr_test' -n 4 --alluredir=${{env.REPORT_DIR}}
+          pytest autotest/evaluate/test_api_evaluate.py  -m 'gpu_num_1 and not pr_test' -n 4 --alluredir=${{env.REPORT_DIR}}
 
       - name: Clear workspace
         if: always()

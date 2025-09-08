@@ -14,7 +14,6 @@ tp_config:
     internlm2_5-20b-chat: 2
     internlm2_5-20b: 2
     internlm2_5-7b-chat-1m: 4
-    internlm2_5-7b: 4
     InternVL3-38B: 2
     InternVL2_5-26B: 2
     InternVL2_5-26B-MPO: 2
@@ -38,7 +37,6 @@ tp_config:
     InternVL2-Llama3-76B-AWQ: 4
     gpt-oss-20b: 2
     gpt-oss-120b: 4
-    Qwen2.5-14B: 4
 
 
 turbomind_chat_model:

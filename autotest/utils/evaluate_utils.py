@@ -122,6 +122,8 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
                 f.write(f'Config file: {temp_config_file}\n')
                 f.write(f'Backend: {backend_type}\n')
                 f.write(f'TP Num: {tp_num}\n')
+                f.write(f'Command: {" ".join(cmd)}\n')
+                f.write(f'Work directory: {work_dir}\n')
                 f.write(f'STDOUT:\n{stdout_output}\n')
                 if stderr_output:
                     f.write(f'STDERR:\n{stderr_output}\n')
@@ -132,6 +134,14 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
                 print(f'STDERR:\n{stderr_output}')
             print(f'Return code: {result.returncode}')
 
+            # 检查stdout中是否包含错误信息
+            evaluation_failed = False
+            error_keywords = ['ERROR -', 'fail, see', 'task .* fail']
+            for line in stdout_output.split('\n'):
+                if any(keyword in line for keyword in error_keywords):
+                    evaluation_failed = True
+                    break
+
             # 清理临时配置文件
             try:
                 os.remove(temp_config_path)
@@ -139,14 +149,27 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
             except Exception as e:
                 print(f'Warning: Failed to clean up temporary config file: {e}')
 
-            # 判断是否成功
-            if result.returncode == 0:
+            # 判断是否成功 (优化后的判断逻辑)
+            if result.returncode == 0 and not evaluation_failed:
                 return True, f'Evaluation completed successfully for {model_name} ({model_type})'
             else:
-                error_msg = (f'Evaluation failed for {model_name} ({model_type}) '
-                             f'with return code {result.returncode}')
+                error_msg = f'Evaluation failed for {model_name} ({model_type}) '
+                if result.returncode != 0:
+                    error_msg += f'with return code {result.returncode}'
+                elif evaluation_failed:
+                    error_msg += 'with internal errors detected in logs'
+
                 if stderr_output:
                     error_msg += f'\nSTDERR: {stderr_output}'
+                else:
+                    # 提取stdout中的错误信息
+                    error_lines = []
+                    for line in stdout_output.split('\n'):
+                        if any(keyword in line for keyword in error_keywords):
+                            error_lines.append(line)
+                    if error_lines:
+                        error_msg += f'\nLog errors: {" | ".join(error_lines[:3])}'  # 只显示前3个错误行
+
                 return False, error_msg
 
         finally:

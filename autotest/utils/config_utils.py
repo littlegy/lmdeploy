@@ -248,7 +248,7 @@ def get_chat_template(model_name):
     return template_mapping.get(model_name, 'base')
 
 
-def get_evaluate_model_list(tp_num, is_longtext: bool = False):
+def get_evaluate_model_list(tp_num, is_longtext: bool = False, kvint_list: list = []):
     """Get model list for evaluation tests without quantized models.
 
     Args:
@@ -265,60 +265,76 @@ def get_evaluate_model_list(tp_num, is_longtext: bool = False):
         case_list_base = [item for item in config.get('longtext_model', [])]
     else:
         case_list_base = config.get('evaluate_model', config.get('benchmark_model', []))
+    quatization_case_config = config.get('turbomind_quatization')
+    pytorch_quatization_case_config = config.get('pytorch_quatization')
 
-    model_list = case_list_base
+    case_list = copy.deepcopy(case_list_base)
+    for key in case_list_base:
+        if key in config.get('turbomind_chat_model') and key not in quatization_case_config.get(
+                'no_awq') and not is_quantization_model(key):
+            case_list.append(key + '-inner-4bits')
+
+    for key in case_list_base:
+        if key in config.get('pytorch_chat_model') and key in pytorch_quatization_case_config.get(
+                'w8a8') and not is_quantization_model(key):
+            case_list.append(key + '-inner-w8a8')
+
+    model_list = [item for item in case_list if get_tp_num(config, item) == tp_num]
 
     result = []
     if len(model_list) > 0:
-        # Get TurboMind model sets
-        turbomind_chat_models = set(config.get('turbomind_chat_model', []))
-        turbomind_base_models = set(config.get('turbomind_base_model', []))
 
-        # Add TurboMind models with different communicators
-        for item in model_list:
-            if item in turbomind_chat_models or item in turbomind_base_models:
-                # Determine communicators based on TP number
-                communicators = ['native'] if tp_num == 1 else ['native', 'nccl']
-
-                for communicator in communicators:
+        communicators = ['native', 'nccl']
+        for communicator in communicators:
+            for item in model_list:
+                if item.replace('-inner-4bits', '') in config.get('turbomind_chat_model') or item.replace(
+                        '-inner-4bits', '') in config.get('turbomind_base_model'):
                     model_config = {
                         'model': item,
                         'backend': 'turbomind',
-                        'tp_num': tp_num,
                         'communicator': communicator,
-                        'extra': ''  # 默认为空字符串
+                        'quant_policy': 0,
+                        'tp_num': tp_num,
+                        'extra': ''
                     }
-
                     # Add chat template for base models
-                    if item in turbomind_base_models:
-                        chat_template = get_chat_template(item)
+                    base_model = item.replace('-inner-4bits', '')
+                    if base_model in config.get('turbomind_base_model', []):
+                        chat_template = get_chat_template(base_model)
                         if chat_template and chat_template != 'base':
                             model_config['extra'] = f'--chat-template {chat_template} '
-
                     result.append(model_config)
 
-        # Add PyTorch models (excluding quantized models)
-        pytorch_chat_models = set(config.get('pytorch_chat_model', []))
-        pytorch_base_models = set(config.get('pytorch_base_model', []))
-        all_pytorch_models = pytorch_chat_models.union(pytorch_base_models)
-
         for item in model_list:
-            if item in all_pytorch_models:
-                model_config = {
-                    'model': item,
-                    'backend': 'pytorch',
-                    'tp_num': tp_num,
-                    'extra': ''  # 默认为空字符串
-                }
-
-                # Add chat template for PyTorch base models
-                if item in pytorch_base_models:
-                    chat_template = get_chat_template(item)
+            if '4bits' not in item and (item.replace('-inner-w8a8', '') in config.get('pytorch_chat_model')
+                                        or item.replace('-inner-w8a8', '') in config.get('pytorch_base_model')):
+                model_config = {'model': item, 'backend': 'pytorch', 'tp_num': tp_num, 'extra': ''}
+                # Add chat template for base models
+                base_model = item.replace('-inner-w8a8', '')
+                if base_model in config.get('pytorch_base_model', []):
+                    chat_template = get_chat_template(base_model)
                     if chat_template and chat_template != 'base':
                         model_config['extra'] = f'--chat-template {chat_template} '
-
                 result.append(model_config)
 
+        for kvint in kvint_list:
+            for item in model_list:
+                if item.replace('-inner-4bits', '') in config.get('turbomind_chat_model') and item.replace(
+                        '-inner-4bits', '') not in quatization_case_config.get('no_kvint' + str(kvint)):
+                    model_config = {
+                        'model': item,
+                        'backend': 'turbomind',
+                        'quant_policy': kvint,
+                        'tp_num': tp_num,
+                        'extra': ''
+                    }
+                    # Add chat template for base models
+                    base_model = item.replace('-inner-4bits', '')
+                    if base_model in config.get('turbomind_base_model', []):
+                        chat_template = get_chat_template(base_model)
+                        if chat_template and chat_template != 'base':
+                            model_config['extra'] = f'--chat-template {chat_template} '
+                    result.append(model_config)
     return result
 
 
