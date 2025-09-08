@@ -68,7 +68,7 @@ jobs:
     needs: linux-build
     if: ${{ !cancelled() }}
     runs-on: [self-hosted, test-140]
-    timeout-minutes: 120
+    timeout-minutes: 1200
     strategy:
       fail-fast: false
     container:
@@ -118,6 +118,7 @@ jobs:
           rm -rf allure-results
           # remove tmp log in testcase
           rm -rf /nvme/qa_test_models/autotest_model/log/*
+          rm -rf /nvme/qa_test_models/autotest_model/tmp/*
           mkdir -p ${{ env.REPORT_DIR }}/.pytest_cache
           ln -s ${{ env.REPORT_DIR }}/.pytest_cache autotest
 

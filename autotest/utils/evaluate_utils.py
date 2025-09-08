@@ -64,8 +64,11 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
         original_cwd = os.getcwd()
 
         dst_path = config.get('dst_path', '/tmp')  # 默认使用/tmp如果未指定
-        os.makedirs(dst_path, exist_ok=True)
-        work_dir = tempfile.mkdtemp(dir=dst_path)
+        tmp_subdir = os.path.join(dst_path, 'tmp')
+        os.makedirs(tmp_subdir, exist_ok=True)
+
+        # 在tmp子目录下创建临时工作目录
+        work_dir = tempfile.mkdtemp(dir=tmp_subdir)
 
         try:
 
