@@ -3,9 +3,9 @@ from opencompass.models import OpenAISDK
 
 with read_base():
     # 导入数据集配置
-    from opencompass.configs.datasets.gpqa.gpqa_openai_simple_evals_gen_5aeece import gpqa_datasets  # noqa: F401, E501
-    from opencompass.configs.datasets.IFEval.IFEval_gen_353ae7 import ifeval_datasets  # noqa: F401, E501
-    from opencompass.configs.datasets.math.math_0shot_gen_11c4b5 import math_datasets  # noqa: F401, E501
+    from opencompass.configs.datasets.gpqa.gpqa_gen_4baadb import gpqa_datasets  # noqa: F401, E501
+    from opencompass.configs.datasets.IFEval.IFEval_gen_3321a3 import ifeval_datasets  # noqa: F401, E501
+    from opencompass.configs.datasets.math.math_0shot_gen_393424 import math_datasets  # noqa: F401, E501
 
 datasets = sum([v for k, v in locals().items() if k.endswith('_datasets')], [])
 

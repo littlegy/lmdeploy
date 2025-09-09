@@ -3,9 +3,10 @@ from opencompass.models import OpenAISDK
 
 with read_base():
     # 导入数据集配置
-    from opencompass.configs.datasets.gpqa.gpqa_openai_simple_evals_gen_5aeece import gpqa_datasets  # noqa: F401, E501
+    from opencompass.configs.datasets.gpqa.gpqa_few_shot_ppl_4b5a83 import gpqa_datasets  # noqa: F401, E501
     from opencompass.configs.datasets.gsm8k.gsm8k_gen_17d0dc import gsm8k_datasets  # noqa: F401, E501
-    from opencompass.configs.datasets.race.race_ppl import race_datasets  # noqa: F401, E501
+    from opencompass.configs.datasets.mmlu.mmlu_ppl_ac766d import mmlu_datasets  # noqa: F401, E501
+    from opencompass.configs.datasets.race.race_few_shot_ppl import race_datasets  # noqa: F401, E501
     from opencompass.configs.datasets.winogrande.winogrande_5shot_ll_252f01 import \
         winogrande_datasets  # noqa: F401, E501
 
@@ -45,6 +46,7 @@ summarizer = dict(
         ['GPQA_diamond', 'accuracy'],
         ['race-high', 'accuracy'],
         ['winogrande', 'accuracy'],
+        ['mmlu', 'accuracy'],
     ],
     summary_groups=sum([v for k, v in locals().items() if k.endswith('_summary_groups')], []),
 )
