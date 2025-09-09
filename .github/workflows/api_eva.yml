@@ -68,7 +68,7 @@ jobs:
     needs: linux-build
     if: ${{ !cancelled() }}
     runs-on: [self-hosted, test-140]
-    timeout-minutes: 1200
+    timeout-minutes: 2400
     strategy:
       fail-fast: false
     container:
