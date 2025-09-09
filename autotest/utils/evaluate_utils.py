@@ -118,7 +118,9 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
             stderr_output = result.stderr
 
             # 保存输出到日志文件
-            log_file = os.path.join(log_path, f"eval_{model_name.replace('/', '_')}_{model_type}_{worker_id}.log")
+            log_file = os.path.join(
+                log_path,
+                f"eval_{backend_type}_{model_name.replace('/', '_')}_{model_type}_{communicator}_{worker_id}.log")
             with open(log_file, 'w', encoding='utf-8') as f:
                 f.write(f'Model: {model_name}\n')
                 f.write(f'Model type: {model_type}\n')
