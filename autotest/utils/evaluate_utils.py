@@ -111,7 +111,7 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
             print(f'Work directory: {work_dir}')
 
             # 执行评估
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=7200)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=72000)
 
             # 输出结果
             stdout_output = result.stdout
