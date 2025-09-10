@@ -13,6 +13,11 @@ on:
         description: 'Set branch or tag or commit id. Default is "main"'
         type: string
         default: 'api_evaluate'
+      backend:
+        required: true
+        description: 'Set backend testcase filter: turbomind or pytorch or turbomind, pytorch. Default is "["turbomind", "pytorch"]"'
+        type: string
+        default: "['turbomind', 'pytorch']"
 
 
 env:
@@ -71,6 +76,8 @@ jobs:
     timeout-minutes: 2400
     strategy:
       fail-fast: false
+      matrix:
+        backend: ${{ fromJSON(inputs.backend || '["turbomind", "pytorch"]')}}
     container:
       image: openmmlab/lmdeploy:latest-cu12.8
       options: "--gpus=all --ipc=host --user root -e PIP_CACHE_DIR=/root/.cache/pip -e NVIDIA_DISABLE_REQUIRE=1 --pull never"
@@ -123,9 +130,10 @@ jobs:
           ln -s ${{ env.REPORT_DIR }}/.pytest_cache autotest
 
       - name: Setup paths for evaluation
+        if: (matrix.backend == 'pytorch' || matrix.backend == 'turbomind')
         run: |
           ln -s /mnt/187/opencompass-data/data ./data
-          pytest autotest/evaluate/test_api_evaluate.py  -m 'gpu_num_1 and not pr_test' -n 4 --alluredir=${{env.REPORT_DIR}}
+          pytest autotest/evaluate/test_api_evaluate_${{matrix.backend}}.py  -m 'gpu_num_1 and not pr_test' -n 4 --alluredir=${{env.REPORT_DIR}}
 
       - name: Clear workspace
         if: always()

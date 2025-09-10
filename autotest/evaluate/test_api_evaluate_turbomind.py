@@ -1,5 +1,5 @@
 import pytest
-from utils.config_utils import get_evaluate_model_list, get_workerid
+from utils.config_utils import get_evaluate_turbomind_model_list, get_workerid
 from utils.evaluate_utils import restful_test
 from utils.run_restful_chat import start_restful_api, stop_restful_api
 
@@ -19,7 +19,7 @@ def prepare_environment(request, config, worker_id):
 
 
 def getModelList(tp_num):
-    model_list = get_evaluate_model_list(tp_num, kvint_list=[4, 8])
+    model_list = get_evaluate_turbomind_model_list(tp_num, kvint_list=[4, 8])
     new_model_list = []
     for model in model_list:
         if model['backend'] == 'pytorch':
