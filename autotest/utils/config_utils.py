@@ -278,26 +278,26 @@ def get_evaluate_turbomind_model_list(tp_num, is_longtext: bool = False, kvint_l
     result = []
     if len(model_list) > 0:
 
-        # communicators = ['native', 'nccl']
-        # for communicator in communicators:
-        #     for item in model_list:
-        #         if item.replace('-inner-4bits', '') in config.get('turbomind_chat_model') or item.replace(
-        #                 '-inner-4bits', '') in config.get('turbomind_base_model'):
-        #             model_config = {
-        #                 'model': item,
-        #                 'backend': 'turbomind',
-        #                 'communicator': communicator,
-        #                 'quant_policy': 0,
-        #                 'tp_num': tp_num,
-        #                 'extra': ''
-        #             }
-        #             # Add chat template for base models
-        #             base_model = item.replace('-inner-4bits', '')
-        #             if base_model in config.get('turbomind_base_model', []):
-        #                 chat_template = get_chat_template(base_model)
-        #                 if chat_template and chat_template != 'base':
-        #                     model_config['extra'] = f'--chat-template {chat_template} '
-        #             result.append(model_config)
+        communicators = ['native', 'nccl']
+        for communicator in communicators:
+            for item in model_list:
+                if item.replace('-inner-4bits', '') in config.get('turbomind_chat_model') or item.replace(
+                        '-inner-4bits', '') in config.get('turbomind_base_model'):
+                    model_config = {
+                        'model': item,
+                        'backend': 'turbomind',
+                        'communicator': communicator,
+                        'quant_policy': 0,
+                        'tp_num': tp_num,
+                        'extra': f'--communicator {communicator} '
+                    }
+                    # Add chat template for base models
+                    base_model = item.replace('-inner-4bits', '')
+                    if base_model in config.get('turbomind_base_model', []):
+                        chat_template = get_chat_template(base_model)
+                        if chat_template and chat_template != 'base':
+                            model_config['extra'] += f'--chat-template {chat_template} '
+                    result.append(model_config)
 
         for kvint in kvint_list:
             for item in model_list:
@@ -315,7 +315,7 @@ def get_evaluate_turbomind_model_list(tp_num, is_longtext: bool = False, kvint_l
                     if base_model in config.get('turbomind_base_model', []):
                         chat_template = get_chat_template(base_model)
                         if chat_template and chat_template != 'base':
-                            model_config['extra'] = f'--chat-template {chat_template} '
+                            model_config['extra'] += f'--chat-template {chat_template} '
                     result.append(model_config)
     return result
 

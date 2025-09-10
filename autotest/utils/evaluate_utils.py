@@ -1,7 +1,6 @@
 # utils/evaluate_utils.py
 import os
 import subprocess
-import tempfile
 
 from mmengine.config import Config
 
@@ -62,13 +61,9 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
 
         # 保存当前目录
         original_cwd = os.getcwd()
-
-        dst_path = config.get('dst_path', '/tmp')  # 默认使用/tmp如果未指定
-        tmp_subdir = os.path.join(dst_path, 'tmp')
-        os.makedirs(tmp_subdir, exist_ok=True)
-
-        # 在tmp子目录下创建临时工作目录
-        work_dir = tempfile.mkdtemp(dir=tmp_subdir)
+        work_dir = os.path.join(
+            log_path, f"wk_{backend_type}_{model_name.replace('/', '_')}_{model_type}_{communicator}_{worker_id}")
+        os.makedirs(work_dir, exist_ok=True)
 
         try:
 
@@ -105,7 +100,7 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
             print(f'Modified config saved to: {temp_config_path}')
 
             # 构建OpenCompass评估命令，使用修改后的配置文件
-            cmd = ['opencompass', temp_config_path, '-w', work_dir]
+            cmd = ['opencompass', temp_config_path, '-w', work_dir, '--reuse', '--max-num-workers 16']
 
             print(f"Running command: {' '.join(cmd)}")
             print(f'Work directory: {work_dir}')
