@@ -31,7 +31,7 @@ models = [
         path=MODEL_PATH,
         meta_template=api_meta_template,
         max_out_len=2048,
-        batch_size=1000,
+        batch_size=500,
         run_cfg=dict(num_gpus=1, communicator='native'),
         temperature=0.1,
     )
