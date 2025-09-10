@@ -1,5 +1,3 @@
-import os
-
 import pytest
 from utils.config_utils import get_evaluate_turbomind_model_list, get_workerid
 from utils.evaluate_utils import restful_test
@@ -14,10 +12,6 @@ def prepare_environment(request, config, worker_id):
     model = param['model']
     backend = param['backend']
     print(param['model'], param['backend'], param['extra'])
-    # Use github.run_id in log path
-    github_run_id = os.environ.get('GITHUB_RUN_ID', 'local_run')
-    if 'log_path' in config:
-        config['log_path'] = os.path.join(config['log_path'], f'{github_run_id}')
     model_path = config.get('model_path') + '/' + model
     pid, startRes = start_restful_api(config, param, model, model_path, backend, worker_id)
     yield param
