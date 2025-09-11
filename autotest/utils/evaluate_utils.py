@@ -84,7 +84,7 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
                 model_cfg['abbr'] = f'{model_name}-lmdeploy-api'
                 model_cfg['openai_api_base'] = f'http://127.0.0.1:{port}/v1'
                 model_cfg['path'] = model_path
-                model_cfg['run_cfg']['num_gpus'] = tp_num
+                # model_cfg['run_cfg']['num_gpus'] = tp_num
                 if 'backend' in model_cfg:
                     model_cfg['backend'] = backend_type
 

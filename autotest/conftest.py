@@ -1,3 +1,4 @@
+import copy
 import os
 
 import pytest
@@ -23,7 +24,17 @@ def config():
 
     with open(config_path) as f:
         env_config = yaml.load(f.read(), Loader=yaml.SafeLoader)
-    return env_config
+
+    config_copy = copy.deepcopy(env_config)
+    # Add github_run_id to log_path in the copied config
+    github_run_id = os.environ.get('GITHUB_RUN_ID', 'local_run')
+    if 'log_path' in config_copy:
+        # Set the log path with run_id
+        config_copy['log_path'] = os.path.join(config_copy['log_path'], str(github_run_id))
+        # Create the directory if it doesn't exist
+        os.makedirs(config_copy['log_path'], exist_ok=True)
+
+    return config_copy
 
 
 @pytest.fixture(scope='session')
