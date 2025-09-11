@@ -32,8 +32,7 @@ models = [
         meta_template=api_meta_template,
         max_out_len=2048,
         batch_size=500,
-        # run_cfg=dict(num_gpus=1, communicator='native'),
-        # temperature=0.1,
+        temperature=0.1,
     )
 ]
 
