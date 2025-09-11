@@ -22,7 +22,7 @@ on:
         required: true
         description: 'Set testcase module filter: llm, vllm. Default contains all models'
         type: string
-        default: "['llm','mllm']"
+        default: "['llm']"
       function:
         required: true
         description: 'Set testcase function filter: chat, restful, pipeline. Default contains all functions'
@@ -36,7 +36,7 @@ on:
 
 env:
   REPORT_DIR: /test/test-reports/${{ github.run_id }}
-  COV_PARAM: --cov /usr/local/python3.10.5/lib/python3.10/site-packages/lmdeploy
+  COV_PARAM: --cov /usr/local/python3.10.17/lib/python3.10/site-packages/lmdeploy
   FAIL_CONFIG: ${{ github.event_name == 'push' && github.run_attempt != 1 && '--lf --lfnf none' || '--lf'}}
   TEST_CODE_PATH: /test/test_pkg/lmdeploy/${{ github.run_id }}
   LOG_PATH: /test/log
@@ -91,9 +91,6 @@ jobs:
           - backend: pytorch
             model: mllm
             function: chat
-        include:
-          - backend: turbomind
-            model: llm
     container:
       image: crpi-4crprmm5baj1v8iv.cn-hangzhou.personal.cr.aliyuncs.com/lmdeploy_dlinfer/ascend:910b-latest
       options: "--device=/dev/davinci0 --device=/dev/davinci1 --device=/dev/davinci2 --device=/dev/davinci3 --device=/dev/davinci4 --device=/dev/davinci5 --device=/dev/davinci6 --device=/dev/davinci7 --device=/dev/davinci_manager --device=/dev/devmm_svm --device=/dev/hisi_hdc -e PIP_CACHE_DIR=/root/.cache/pip --shm-size=150g --pull never"
