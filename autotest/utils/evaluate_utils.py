@@ -32,6 +32,7 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
         backend_type = prepare_environment['backend']
         tp_num = prepare_environment.get('tp_num', 1)
         communicator = prepare_environment.get('communicator', 'native')
+        quant_policy = prepare_environment.get('quant_policy', 0)
 
         # 根据模型类型确定评估配置
         model_type = get_model_type(model_name)
@@ -62,7 +63,8 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
         # 保存当前目录
         original_cwd = os.getcwd()
         work_dir = os.path.join(
-            log_path, f"wk_{backend_type}_{model_name.replace('/', '_')}_{model_type}_{communicator}_{worker_id}")
+            log_path,
+            f"wk_{backend_type}_{model_name.replace('/', '_')}_{model_type}_{communicator}_{worker_id}_{quant_policy}")
         os.makedirs(work_dir, exist_ok=True)
 
         try:
@@ -111,9 +113,14 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
             stderr_output = result.stderr
 
             # 保存输出到日志文件
-            log_file = os.path.join(
-                log_path,
-                f"eval_{backend_type}_{model_name.replace('/', '_')}_{model_type}_{communicator}_{worker_id}.log")
+            log_filename = (f'eval_{backend_type}_'
+                            f"{model_name.replace('/', '_')}_"
+                            f'{model_type}_'
+                            f'{communicator}_'
+                            f'{worker_id}_'
+                            f'{quant_policy}.log')
+            log_file = os.path.join(log_path, log_filename)
+
             with open(log_file, 'w', encoding='utf-8') as f:
                 f.write(f'Model: {model_name}\n')
                 f.write(f'Model type: {model_type}\n')
