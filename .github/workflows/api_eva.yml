@@ -133,7 +133,8 @@ jobs:
         if: (matrix.backend == 'pytorch' || matrix.backend == 'turbomind')
         run: |
           ln -s /mnt/187/opencompass-data/data ./data
-          pytest autotest/evaluate/test_api_evaluate_${{matrix.backend}}.py  -m 'gpu_num_1 and not pr_test' -n 4 --alluredir=${{env.REPORT_DIR}}
+          pytest autotest/evaluate/test_api_evaluate_${{matrix.backend}}.py  -m 'gpu_num_1 and not pr_test' -n 8 --alluredir=${{env.REPORT_DIR}}
+          pytest autotest/evaluate/test_api_evaluate_${{matrix.backend}}.py  -m 'gpu_num_2 and not pr_test' -n 4 --alluredir=${{env.REPORT_DIR}}
 
       - name: Clear workspace
         if: always()
