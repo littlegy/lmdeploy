@@ -7,12 +7,12 @@ on:
         required: false
         description: 'Tested repository organization name. Default is InternLM/lmdeploy'
         type: string
-        default: 'littlegy/lmdeploy'
+        default: 'InternLM/lmdeploy'
       repo_ref:
         required: false
         description: 'Set branch or tag or commit id. Default is "main"'
         type: string
-        default: 'api_evaluate'
+        default: 'main'
       backend:
         required: true
         description: 'Set backend testcase filter: turbomind or pytorch or turbomind, pytorch. Default is "["turbomind", "pytorch"]"'
@@ -132,10 +132,11 @@ jobs:
       - name: Setup paths for evaluation
         if: (matrix.backend == 'pytorch' || matrix.backend == 'turbomind')
         run: |
+          overall_exit=0
           ln -s /mnt/187/opencompass-data/data ./data
-          pytest autotest/evaluate/test_api_evaluate_${{matrix.backend}}.py  -m 'gpu_num_1 and not pr_test' -n 8 --alluredir=${{env.REPORT_DIR}}
-          pytest autotest/evaluate/test_api_evaluate_${{matrix.backend}}.py  -m 'gpu_num_2 and not pr_test' -n 4 --alluredir=${{env.REPORT_DIR}}
-
+          pytest autotest/evaluate/test_api_evaluate_${{matrix.backend}}.py  -m 'gpu_num_1 and not pr_test' -n 8 --alluredir=${{env.REPORT_DIR}} || overall_exit=$?
+          pytest autotest/evaluate/test_api_evaluate_${{matrix.backend}}.py  -m 'gpu_num_2 and not pr_test' -n 4 --alluredir=${{env.REPORT_DIR}} || overall_exit=$?
+          exit $overall_exit
       - name: Clear workspace
         if: always()
         run: |
