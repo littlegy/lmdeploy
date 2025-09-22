@@ -32,7 +32,6 @@ env:
   OFFLINE_CODE_PATH: /nvme/qa_test_models/offline_pkg/lmdeploy
   OFFLINE_REQUIREMENTS: /nvme/qa_test_models/offline_pkg/requirements.txt
   DEEPSEEK_VL: /nvme/qa_test_models/offline_pkg/DeepSeek-VL
-  DEVICE: h800
 
 jobs:
   linux-build:
@@ -80,7 +79,7 @@ jobs:
       matrix:
         backend: ${{ fromJSON(inputs.backend || '["turbomind", "pytorch"]')}}
     container:
-      image: openmmlab/lmdeploy:latest-cu12.8
+      image: m.daocloud.io/docker.io/openmmlab/lmdeploy:latest-cu12.8
       options: "--gpus=all --ipc=host --user root -e PIP_CACHE_DIR=/root/.cache/pip -e NVIDIA_DISABLE_REQUIRE=1 --pull never"
       volumes:
         - /nvme/github-actions/pip-cache:/root/.cache/pip
@@ -115,6 +114,7 @@ jobs:
         run: |
           python3 -m pip install lmdeploy-*.whl --no-deps
           python3 -m pip install -r requirements/test.txt
+          mv autotest/config-h800.yaml autotest/config.yaml
       - name: Install opencompass
         run: |
           python3 -m pip install opencompass
