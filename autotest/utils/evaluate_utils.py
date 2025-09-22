@@ -39,7 +39,7 @@ def write_to_summary(model_name, tp_num, result, msg, worker_id, backend_type, w
                     dataset = row[0]
                     metric_value = row[4]
                     try:
-                        metrics[dataset] = f'{float(metric_value):.2f}'
+                        metrics[dataset] = f'{float(metric_value):.2f}'  # noqa: E231
                     except ValueError:
                         metrics[dataset] = metric_value
 
@@ -47,6 +47,7 @@ def write_to_summary(model_name, tp_num, result, msg, worker_id, backend_type, w
             print(f'Error reading metrics: {str(e)}')
 
     mmlu_value = metrics.get('mmlu', '')
+    mmlu_value = metrics.get('mmlu-other', '')
     gsm8k_value = metrics.get('gsm8k', '')
 
     summary_line = f'| {model_name} | {backend_type} | TP{tp_num} | {status} | {mmlu_value} | {gsm8k_value} |\n'
@@ -57,8 +58,8 @@ def write_to_summary(model_name, tp_num, result, msg, worker_id, backend_type, w
         with open(summary_file, 'a') as f:
             if write_header:
                 f.write('## Model Evaluation Results\n')
-                f.write('| Model | Backend | TP | Status | mmlu | gsm8k |\n')
-                f.write('|-------|---------|----|--------|------|-------|\n')
+                f.write('| Model | Backend | TP | Status | mmlu | mmlu-other | gsm8k |\n')
+                f.write('|-------|---------|----|--------|------|------------|-------|\n')
             f.write(summary_line)
     else:
         print(f'Summary: {model_name} | {backend_type} | TP{tp_num} | {status} | {mmlu_value} | {gsm8k_value}')
@@ -101,18 +102,18 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
         try:
 
             if not os.path.exists(config_file):
-                return False, f'Config file {config_file} not found in any expected location'
+                return False, f'Config file {config_file} not found'
 
             cfg = Config.fromfile(config_file)
 
             cfg.MODEL_NAME = summary_model_name
             cfg.MODEL_PATH = model_path
-            cfg.API_BASE = f'http://127.0.0.1:{port}/v1'
+            cfg.API_BASE = f'http://127.0.0.1:{port}/v1'  # noqa: E231
 
             if cfg.models and len(cfg.models) > 0:
                 model_cfg = cfg.models[0]
                 model_cfg['abbr'] = f'{summary_model_name}-lmdeploy-api'
-                model_cfg['openai_api_base'] = f'http://127.0.0.1:{port}/v1'
+                model_cfg['openai_api_base'] = f'http://127.0.0.1:{port}/v1'  # noqa: E231
                 model_cfg['path'] = model_path
                 if 'backend' in model_cfg:
                     model_cfg['backend'] = backend_type
@@ -120,7 +121,8 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
                 if 'engine_config' in model_cfg and 'communicator' in model_cfg['engine_config']:
                     model_cfg['engine_config']['communicator'] = communicator
 
-            temp_config_file = f'temp_{model_name.replace("/", "_")}_{os.getpid()}.py'
+            simple_model_name = model_name.replace('/', '_')
+            temp_config_file = f'temp_{simple_model_name}_{os.getpid()}.py'
             temp_config_path = os.path.join(log_path, temp_config_file)
 
             cfg.dump(temp_config_path)
@@ -141,22 +143,23 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
                             f'{worker_id}_'
                             f'{quant_policy}.log')
             log_file = os.path.join(log_path, log_filename)
+            cmd_command = ' '.join(cmd)
 
             with open(log_file, 'w', encoding='utf-8') as f:
                 f.write(f'Model: {model_name}\n')
                 f.write(f'Config file: {temp_config_file}\n')
                 f.write(f'Backend: {backend_type}\n')
                 f.write(f'TP Num: {tp_num}\n')
-                f.write(f'Command: {" ".join(cmd)}\n')
+                f.write(f'Command: {cmd_command}\n')
                 f.write(f'Work directory: {work_dir}\n')
-                f.write(f'STDOUT:\n{stdout_output}\n')
+                f.write(f'STDOUT: \n{stdout_output}\n')
                 if stderr_output:
-                    f.write(f'STDERR:\n{stderr_output}\n')
+                    f.write(f'STDERR: \n{stderr_output}\n')
                 f.write(f'Return code: {result.returncode}\n')
 
-            print(f'STDOUT:\n{stdout_output}')
+            print(f'STDOUT: \n{stdout_output}')
             if stderr_output:
-                print(f'STDERR:\n{stderr_output}')
+                print(f'STDERR: \n{stderr_output}')
             print(f'Return code: {result.returncode}')
 
             evaluation_failed = False
@@ -185,7 +188,8 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
                         if any(keyword in line for keyword in error_keywords):
                             error_lines.append(line)
                     if error_lines:
-                        final_msg += f'\nLog errors: {" | ".join(error_lines[:3])}'
+                        error_lines = ' | '.join(error_lines[:3])
+                        final_msg += f'\nLog errors: {error_lines}'
 
             write_to_summary(summary_model_name, tp_num, final_result, final_msg, worker_id, backend_type, work_dir)
 
