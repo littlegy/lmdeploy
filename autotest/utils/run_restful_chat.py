@@ -17,6 +17,7 @@ from lmdeploy.serve.openai.api_client import APIClient
 
 BASE_HTTP_URL = 'http://localhost'
 DEFAULT_PORT = 23333
+PROXY_PORT = 8000
 
 
 def start_restful_api(config, param, model, model_path, backend_type, worker_id):
@@ -681,3 +682,66 @@ def run_tools_case(config, port: int = DEFAULT_PORT):
 
     file.close()
     allure.attach.file(restful_log, attachment_type=allure.attachment_type.TEXT)
+
+
+def proxy_health_check(url):
+    """Check if proxy server is healthy."""
+    try:
+        # For proxy server, we check if it responds to the /v1/models endpoint
+        import requests
+        response = requests.get(f'{url}/v1/models', timeout=5)
+        if response.status_code == 200:
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def start_proxy_server(config, worker_id):
+    """Start the proxy server for testing."""
+    log_path = config.get('log_path')
+    os.makedirs(log_path, exist_ok=True)
+
+    timestamp = time.strftime('%Y%m%d_%H%M%S')
+    proxy_log = os.path.join(log_path, f'proxy_server_{worker_id}_{timestamp}.log')
+
+    worker_num = get_workerid(worker_id)
+    if worker_num is None:
+        port = PROXY_PORT
+    else:
+        port = PROXY_PORT + worker_num
+
+    cmd = (f'lmdeploy serve proxy --server-name 0.0.0.0 --server-port {port} '
+           f'--routing-strategy min_expected_latency --serving-strategy Hybrid')
+
+    print(f'Starting proxy server with command: {cmd}')
+
+    file = open(proxy_log, 'w')
+    proxy_process = subprocess.Popen([cmd], stdout=file, stderr=file, shell=True, text=True)
+    pid = proxy_process.pid
+
+    start_time = time.time()
+    proxy_started = False
+
+    while time.time() - start_time < 30:
+        if proxy_health_check(f'http://127.0.0.1:{port}'):
+            proxy_started = True
+            break
+        time.sleep(1)
+
+    if not proxy_started:
+        proxy_process.terminate()
+        file.close()
+        raise Exception('Proxy server failed to start within 30 seconds')
+
+    print(f'Proxy server started successfully with PID: {pid}')
+    return pid, proxy_process
+
+
+def stop_proxy_server(pid, proxy_process):
+    if pid > 0 and proxy_process:
+        try:
+            proxy_process.terminate()
+            proxy_process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proxy_process.kill()

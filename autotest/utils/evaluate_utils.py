@@ -72,7 +72,7 @@ def write_to_summary(model_name, tp_num, result, msg, worker_id, backend_type, c
         )
 
 
-def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFAULT_PORT):
+def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFAULT_PORT, test_type='infer', **kwargs):
     work_dir = None
     try:
         model_name = prepare_environment['model']
@@ -108,34 +108,40 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
 
         try:
 
-            if not os.path.exists(config_file):
-                return False, f'Config file {config_file} not found'
-
-            cfg = Config.fromfile(config_file)
-
-            cfg.MODEL_NAME = summary_model_name
-            cfg.MODEL_PATH = model_path
-            cfg.API_BASE = f'http://127.0.0.1:{port}/v1'  # noqa: E231
-
-            if cfg.models and len(cfg.models) > 0:
-                model_cfg = cfg.models[0]
-                model_cfg['abbr'] = f'{summary_model_name}-lmdeploy-api'
-                model_cfg['openai_api_base'] = f'http://127.0.0.1:{port}/v1'  # noqa: E231
-                model_cfg['path'] = model_path
-                if 'backend' in model_cfg:
-                    model_cfg['backend'] = backend_type
-
-                if 'engine_config' in model_cfg and 'communicator' in model_cfg['engine_config']:
-                    model_cfg['engine_config']['communicator'] = communicator
-
-            simple_model_name = model_name.replace('/', '_')
-            temp_config_file = f'temp_{simple_model_name}_{os.getpid()}.py'
+            temp_config_file = f'temp_{backend_type}_{summary_model_name}_{communicator}.py'
             temp_config_path = os.path.join(log_path, temp_config_file)
 
-            cfg.dump(temp_config_path)
-            print(f'Modified config saved to: {temp_config_path}')
+            if test_type == 'infer':
+                if not os.path.exists(config_file):
+                    return False, f'Config file {config_file} not found'
 
-            cmd = ['opencompass', temp_config_path, '--reuse', '--max-num-workers', '16', '-w', work_dir]
+                cfg = Config.fromfile(config_file)
+
+                cfg.MODEL_NAME = summary_model_name
+                cfg.MODEL_PATH = model_path
+                cfg.API_BASE = f'http://127.0.0.1:{port}/v1'  # noqa: E231
+                cfg.JUDGE_API_BASE = 'http://0.0.0.0:8000/v1'
+                cfg.JUDGE_MODEL_PATH = os.path.join(model_base_path, 'Qwen/Qwen2.5-32B-Instruct')
+
+                if cfg.models and len(cfg.models) > 0:
+                    model_cfg = cfg.models[0]
+                    for key, value in kwargs.items():
+                        model_cfg[key] = value
+
+                cfg.dump(temp_config_path)
+                print(f'Modified config saved to: {temp_config_path}')
+            else:
+                if not os.path.exists(temp_config_path):
+                    error_msg = f'Temp config file {temp_config_path} not found for eval stage'
+                    write_to_summary(summary_model_name, tp_num, False, error_msg, worker_id, backend_type,
+                                     communicator, work_dir)
+                    return False, error_msg
+
+                print(f'Using existing temp config file: {temp_config_path}')
+
+            cmd = [
+                'opencompass', temp_config_path, '--reuse', '--max-num-workers', '16', '-w', work_dir, '-m', test_type
+            ]
             print(f"Running command: {' '.join(cmd)}")
             print(f'Work directory: {work_dir}')
 
@@ -198,8 +204,9 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
                         error_lines = ' | '.join(error_lines[:3])
                         final_msg += f'\nLog errors: {error_lines}'
 
-            write_to_summary(summary_model_name, tp_num, final_result, final_msg, worker_id, backend_type, communicator,
-                             work_dir)
+            if test_type == 'eval':
+                write_to_summary(summary_model_name, tp_num, final_result, final_msg, worker_id, backend_type,
+                                 communicator, work_dir)
 
             return final_result, final_msg
 
@@ -210,13 +217,13 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
     except subprocess.TimeoutExpired:
         timeout_msg = (f'Evaluation timed out for {model_name} '
                        f'after 7200 seconds')
-        if work_dir:
+        if work_dir and test_type == 'eval':
             write_to_summary(summary_model_name, tp_num, False, timeout_msg, worker_id, backend_type, communicator,
                              work_dir)
         return False, timeout_msg
     except Exception as e:
         error_msg = f'Error during evaluation for {model_name}: {str(e)}'
-        if work_dir:
+        if work_dir and test_type == 'eval':
             write_to_summary(summary_model_name, tp_num, False, error_msg, worker_id, backend_type, communicator,
                              work_dir)
         return False, error_msg
