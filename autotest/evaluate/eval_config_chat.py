@@ -64,6 +64,14 @@ mmlu_pro_datasets = [x for x in mmlu_pro_datasets if 'math' in x['abbr'] or 'oth
 # Modify datasets list to exclude hle_datasets and LCBCodeGeneration_dataset
 datasets = sum((v for k, v in locals().items() if k.endswith('_datasets') and k != 'hle_datasets'), [])
 
+# Update mmlu_pro_summary_groups to only include math and other categories
+mmlu_pro_summary_groups = [
+    {
+        'name': 'mmlu_pro',
+        'subsets': [x['abbr'] for x in mmlu_pro_datasets]
+    },
+]
+
 # LLM judge config: using LLM to evaluate predictions
 judge_cfg = dict(
     type=OpenAISDK,

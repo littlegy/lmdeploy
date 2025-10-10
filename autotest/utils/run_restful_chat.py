@@ -698,11 +698,14 @@ def proxy_health_check(url):
 
 
 def start_proxy_server(config, worker_id):
-    """Start the proxy server for testing."""
+    """Start the proxy server for testing with enhanced error handling and
+    logging."""
     log_path = config.get('log_path')
+    if log_path is None:
+        log_path = '/nvme/qa_test_models/evaluation_report'
     os.makedirs(log_path, exist_ok=True)
 
-    timestamp = time.strftime('%Y%m%d_%H%M%S')
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     proxy_log = os.path.join(log_path, f'proxy_server_{worker_id}_{timestamp}.log')
 
     worker_num = get_workerid(worker_id)
@@ -716,32 +719,68 @@ def start_proxy_server(config, worker_id):
 
     print(f'Starting proxy server with command: {cmd}')
 
-    file = open(proxy_log, 'w')
-    proxy_process = subprocess.Popen([cmd], stdout=file, stderr=file, shell=True, text=True)
+    proxy_file = open(proxy_log, 'w')
+    proxy_process = subprocess.Popen([cmd],
+                                     stdout=proxy_file,
+                                     stderr=proxy_file,
+                                     shell=True,
+                                     text=True,
+                                     encoding='utf-8')
     pid = proxy_process.pid
 
-    start_time = time.time()
-    proxy_started = False
+    start_time = int(time())
+    timeout = 300
 
-    while time.time() - start_time < 30:
+    sleep(5)
+    for i in range(timeout):
+        sleep(1)
         if proxy_health_check(f'http://127.0.0.1:{port}'):
-            proxy_started = True
             break
-        time.sleep(1)
 
-    if not proxy_started:
-        proxy_process.terminate()
-        file.close()
-        raise Exception('Proxy server failed to start within 30 seconds')
+        try:
+            # Check if process is still running
+            return_code = proxy_process.wait(timeout=1)  # Small timeout to check status
+            if return_code != 0:
+                with open(proxy_log, 'r') as f:
+                    content = f.read()
+                    print(content)
+                return 0, proxy_process
+        except subprocess.TimeoutExpired:
+            continue
+
+        end_time = int(time())
+        total_time = end_time - start_time
+        if total_time >= timeout:
+            break
+
+    proxy_file.close()
+    allure.attach.file(proxy_log, attachment_type=allure.attachment_type.TEXT)
 
     print(f'Proxy server started successfully with PID: {pid}')
     return pid, proxy_process
 
 
 def stop_proxy_server(pid, proxy_process):
+    """Stop the proxy server with graceful termination handling."""
     if pid > 0 and proxy_process:
         try:
-            proxy_process.terminate()
-            proxy_process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            proxy_process.kill()
+            parent = psutil.Process(pid)
+            for child in parent.children(recursive=True):
+                child.terminate()
+            parent.terminate()
+
+            # Wait for graceful termination
+            parent.wait(timeout=10)
+        except psutil.TimeoutExpired:
+            # Force kill if graceful termination fails
+            parent.kill()
+        except psutil.NoSuchProcess:
+            # Process already terminated
+            pass
+        except Exception:
+            # Fallback method
+            try:
+                proxy_process.terminate()
+                proxy_process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proxy_process.kill()

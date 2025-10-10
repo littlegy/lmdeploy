@@ -108,7 +108,7 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
 
         try:
 
-            temp_config_file = f'temp_{backend_type}_{summary_model_name}_{communicator}.py'
+            temp_config_file = f"temp_{backend_type}_{summary_model_name.replace('/', '_')}_{communicator}.py"
             temp_config_path = os.path.join(log_path, temp_config_file)
 
             if test_type == 'infer':
@@ -120,24 +120,53 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
                 cfg.MODEL_NAME = summary_model_name
                 cfg.MODEL_PATH = model_path
                 cfg.API_BASE = f'http://127.0.0.1:{port}/v1'  # noqa: E231
-                cfg.JUDGE_API_BASE = 'http://0.0.0.0:8000/v1'
-                cfg.JUDGE_MODEL_PATH = os.path.join(model_base_path, 'Qwen/Qwen2.5-32B-Instruct')
 
                 if cfg.models and len(cfg.models) > 0:
                     model_cfg = cfg.models[0]
+                    model_cfg['abbr'] = f'{summary_model_name}-lmdeploy-api'
+                    model_cfg['openai_api_base'] = f'http://127.0.0.1:{port}/v1'  # noqa: E231
+                    model_cfg['path'] = model_path
+
                     for key, value in kwargs.items():
                         model_cfg[key] = value
 
                 cfg.dump(temp_config_path)
                 print(f'Modified config saved to: {temp_config_path}')
-            else:
+            elif test_type == 'eval':
                 if not os.path.exists(temp_config_path):
                     error_msg = f'Temp config file {temp_config_path} not found for eval stage'
                     write_to_summary(summary_model_name, tp_num, False, error_msg, worker_id, backend_type,
                                      communicator, work_dir)
                     return False, error_msg
 
+                cfg = Config.fromfile(temp_config_path)
                 print(f'Using existing temp config file: {temp_config_path}')
+
+                cfg.JUDGE_API_BASE = f'http://0.0.0.0:{port}/v1'
+                cfg.JUDGE_MODEL_PATH = os.path.join(model_base_path, 'Qwen/Qwen2.5-32B-Instruct')
+
+                if hasattr(cfg, 'judge_cfg'):
+                    cfg.judge_cfg['path'] = cfg.JUDGE_MODEL_PATH
+                    cfg.judge_cfg['openai_api_base'] = cfg.JUDGE_API_BASE
+                    cfg.judge_cfg['tokenizer_path'] = cfg.JUDGE_MODEL_PATH
+
+                if hasattr(cfg, 'datasets') and cfg.datasets:
+                    for dataset in cfg.datasets:
+                        if 'eval_cfg' in dataset and 'evaluator' in dataset['eval_cfg']:
+                            evaluator = dataset['eval_cfg']['evaluator']
+
+                            if 'judge_cfg' in evaluator:
+                                evaluator['judge_cfg']['path'] = cfg.JUDGE_MODEL_PATH
+                                evaluator['judge_cfg']['openai_api_base'] = cfg.JUDGE_API_BASE
+                                evaluator['judge_cfg']['tokenizer_path'] = cfg.JUDGE_MODEL_PATH
+
+                            if 'llm_evaluator' in evaluator and 'judge_cfg' in evaluator['llm_evaluator']:
+                                evaluator['llm_evaluator']['judge_cfg']['path'] = cfg.JUDGE_MODEL_PATH
+                                evaluator['llm_evaluator']['judge_cfg']['openai_api_base'] = cfg.JUDGE_API_BASE
+                                evaluator['llm_evaluator']['judge_cfg']['tokenizer_path'] = cfg.JUDGE_MODEL_PATH
+
+                cfg.dump(temp_config_path)
+                print(f'Modified config for eval stage saved to: {temp_config_path}')
 
             cmd = [
                 'opencompass', temp_config_path, '--reuse', '--max-num-workers', '16', '-w', work_dir, '-m', test_type
