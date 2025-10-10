@@ -29,12 +29,16 @@ def prepare_environment(request, config, worker_id):
 
 @pytest.fixture(scope='function')
 def prepare_environment_judge_evaluate(request, config, worker_id):
+    if get_workerid(worker_id) is None:
+        port = PROXY_PORT
+    else:
+        port = PROXY_PORT + get_workerid(worker_id)
     judge_config = {
         'model': 'Qwen/Qwen2.5-32B-Instruct',
         'backend': 'turbomind',
         'param': {
             'tp_num': 2,
-            'extra': f'--proxy-url http://0.0.0.0:{PROXY_PORT}',
+            'extra': f'--proxy-url http://0.0.0.0:{port}',
             'cuda_prefix': None
         },
         'log_path': config.get('log_path'),
