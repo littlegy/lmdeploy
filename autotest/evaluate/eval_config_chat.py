@@ -64,14 +64,6 @@ mmlu_pro_datasets = [x for x in mmlu_pro_datasets if 'math' in x['abbr'] or 'oth
 # Modify datasets list to exclude hle_datasets and LCBCodeGeneration_dataset
 datasets = sum((v for k, v in locals().items() if k.endswith('_datasets') and k != 'hle_datasets'), [])
 
-# Update mmlu_pro_summary_groups to only include math and other categories
-mmlu_pro_summary_groups = [
-    {
-        'name': 'mmlu_pro',
-        'subsets': [x['abbr'] for x in mmlu_pro_datasets]
-    },
-]
-
 # LLM judge config: using LLM to evaluate predictions
 judge_cfg = dict(
     type=OpenAISDK,
@@ -112,7 +104,8 @@ core_summary_groups = [
             # ['hle_llmjudge', 'accuracy'],
             ['aime2025_repeat_32', 'accuracy (32 runs average)'],
             ['GPQA_diamond_repeat_4', 'accuracy (4 runs average)'],
-            ['mmlu_pro', 'naive_average'],
+            ['mmlu_pro_math', 'naive_average'],
+            ['mmlu_pro_other', 'naive_average'],
             # Remove lcb_code_generation_repeat_6 due to version errors
             # ['lcb_code_generation_repeat_6', 'pass@1 (6 runs average)'],
         ],
@@ -127,7 +120,8 @@ summarizer = dict(
         # ['hle_llmjudge', 'accuracy'],
         ['GPQA_diamond_repeat_4', 'accuracy (4 runs average)'],
         ['aime2025_repeat_32', 'accuracy (32 runs average)'],
-        ['mmlu_pro', 'naive_average'],
+        ['mmlu_pro_math', 'naive_average'],
+        ['mmlu_pro_other', 'naive_average'],
     ],
     summary_groups=sum([v for k, v in locals().items() if k.endswith('_summary_groups')], []) + core_summary_groups,
 )
