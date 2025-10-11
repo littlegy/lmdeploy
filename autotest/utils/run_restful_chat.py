@@ -54,8 +54,7 @@ def start_restful_api(config, param, model, model_path, backend_type, worker_id)
     else:
         port = DEFAULT_PORT + worker_num
 
-    cmd = get_command_with_extra('lmdeploy serve api_server ' + model_path + ' --session-len 8096 --server-port ' +
-                                 str(port),
+    cmd = get_command_with_extra('lmdeploy serve api_server ' + model_path + ' --server-port ' + str(port),
                                  config,
                                  model,
                                  need_tp=True,
@@ -700,7 +699,7 @@ def proxy_health_check(url):
 def start_proxy_server(config, worker_id):
     """Start the proxy server for testing with enhanced error handling and
     logging."""
-    log_path = config.get('log_path')
+    log_path = config.get('eval_log_path')
     if log_path is None:
         log_path = '/nvme/qa_test_models/evaluation_report'
     os.makedirs(log_path, exist_ok=True)
@@ -718,6 +717,7 @@ def start_proxy_server(config, worker_id):
            f'--routing-strategy min_expected_latency --serving-strategy Hybrid')
 
     print(f'Starting proxy server with command: {cmd}')
+    print(f'Proxy log will be saved to: {proxy_log}')
 
     proxy_file = open(proxy_log, 'w')
     proxy_process = subprocess.Popen([cmd],
