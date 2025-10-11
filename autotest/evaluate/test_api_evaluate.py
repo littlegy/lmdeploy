@@ -38,7 +38,7 @@ def prepare_environment_judge_evaluate(request, config, worker_id):
         'backend': 'turbomind',
         'param': {
             'tp_num': 2,
-            'extra': f'--proxy-url http://0.0.0.0:{port}',
+            'extra': f'--proxy-url http://127.0.0.1:{port}',
             'cuda_prefix': None
         },
         'log_path': config.get('log_path'),

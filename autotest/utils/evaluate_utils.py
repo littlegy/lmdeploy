@@ -142,7 +142,7 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
                 cfg = Config.fromfile(temp_config_path)
                 print(f'Using existing temp config file: {temp_config_path}')
 
-                cfg.JUDGE_API_BASE = f'http://0.0.0.0:{port}/v1'
+                cfg.JUDGE_API_BASE = f'http://127.0.0.1:{port}/v1'
                 cfg.JUDGE_MODEL_PATH = os.path.join(model_base_path, 'Qwen/Qwen2.5-32B-Instruct')
 
                 if hasattr(cfg, 'judge_cfg'):
