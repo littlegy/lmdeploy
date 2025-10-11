@@ -219,6 +219,7 @@ def test_pytorch_judgeeval_tp2(config, run_id, prepare_environment_judge_evaluat
 @pytest.mark.eval
 @pytest.mark.pytorch
 @pytest.mark.flaky(reruns=0)
+@pytest.mark.gpu_num_4
 @pytest.mark.parametrize('prepare_environment_judge_evaluate', get_pytorch_model_list(tp_num=4), indirect=True)
 @pytest.mark.parametrize('eval_config', list(EVAL_CONFIGS.keys()))
 def test_pytorch_judgeeval_tp4(config, run_id, prepare_environment_judge_evaluate, worker_id, eval_config):
@@ -227,7 +228,19 @@ def test_pytorch_judgeeval_tp4(config, run_id, prepare_environment_judge_evaluat
 
 
 @pytest.mark.eval
+@pytest.mark.pytorch
+@pytest.mark.flaky(reruns=0)
+@pytest.mark.gpu_num_8
+@pytest.mark.parametrize('prepare_environment_judge_evaluate', get_pytorch_model_list(tp_num=8), indirect=True)
+@pytest.mark.parametrize('eval_config', list(EVAL_CONFIGS.keys()))
+def test_pytorch_judgeeval_tp8(config, run_id, prepare_environment_judge_evaluate, worker_id, eval_config):
+    result, msg = run_test(config, run_id, prepare_environment_judge_evaluate, worker_id, 'eval', eval_config)
+    assert result, msg
+
+
+@pytest.mark.eval
 @pytest.mark.turbomind
+@pytest.mark.gpu_num_1
 @pytest.mark.flaky(reruns=0)
 @pytest.mark.parametrize('prepare_environment_judge_evaluate', get_turbomind_model_list(tp_num=1), indirect=True)
 @pytest.mark.parametrize('eval_config', list(EVAL_CONFIGS.keys()))
@@ -238,6 +251,7 @@ def test_turbomind_judgeeval_tp1(config, run_id, prepare_environment_judge_evalu
 
 @pytest.mark.eval
 @pytest.mark.turbomind
+@pytest.mark.gpu_num_2
 @pytest.mark.flaky(reruns=0)
 @pytest.mark.parametrize('prepare_environment_judge_evaluate', get_turbomind_model_list(tp_num=2), indirect=True)
 @pytest.mark.parametrize('eval_config', list(EVAL_CONFIGS.keys()))
@@ -248,6 +262,7 @@ def test_turbomind_judgeeval_tp2(config, run_id, prepare_environment_judge_evalu
 
 @pytest.mark.eval
 @pytest.mark.turbomind
+@pytest.mark.gpu_num_4
 @pytest.mark.flaky(reruns=0)
 @pytest.mark.parametrize('prepare_environment_judge_evaluate', get_turbomind_model_list(tp_num=4), indirect=True)
 @pytest.mark.parametrize('eval_config', list(EVAL_CONFIGS.keys()))
@@ -258,6 +273,7 @@ def test_turbomind_judgeeval_tp4(config, run_id, prepare_environment_judge_evalu
 
 @pytest.mark.eval
 @pytest.mark.turbomind
+@pytest.mark.gpu_num_8
 @pytest.mark.flaky(reruns=0)
 @pytest.mark.parametrize('prepare_environment_judge_evaluate', get_turbomind_model_list(tp_num=8), indirect=True)
 @pytest.mark.parametrize('eval_config', list(EVAL_CONFIGS.keys()))

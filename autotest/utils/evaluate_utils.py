@@ -179,7 +179,7 @@ def restful_test(config, run_id, prepare_environment, worker_id='gw0', port=DEFA
             stdout_output = result.stdout
             stderr_output = result.stderr
 
-            log_filename = (f'eval_{backend_type}_'
+            log_filename = (f'{test_type}_{backend_type}_'
                             f"{model_name.replace('/', '_')}_"
                             f'{communicator}_'
                             f'{worker_id}_'
