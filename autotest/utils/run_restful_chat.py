@@ -684,6 +684,19 @@ def run_tools_case(config, port: int = DEFAULT_PORT):
     allure.attach.file(restful_log, attachment_type=allure.attachment_type.TEXT)
 
 
+def proxy_health_check(url):
+    """Check if proxy server is healthy."""
+    try:
+        # For proxy server, we check if it responds to the /v1/models endpoint
+        import requests
+        response = requests.get(f'{url}/v1/models', timeout=5)
+        if response.status_code == 200:
+            return True
+        return False
+    except Exception:
+        return False
+
+
 def start_proxy_server(config, worker_id):
     """Start the proxy server for testing with enhanced error handling and
     logging."""
@@ -721,7 +734,7 @@ def start_proxy_server(config, worker_id):
     sleep(5)
     for i in range(timeout):
         sleep(1)
-        if health_check(f'http://127.0.0.1:{port}'):
+        if proxy_health_check(f'http://127.0.0.1:{port}'):
             break
 
         try:
