@@ -37,8 +37,8 @@ def prepare_environment_judge_evaluate(request, config, worker_id):
         'model': 'Qwen/Qwen2.5-32B-Instruct',
         'backend': 'turbomind',
         'param': {
-            'tp_num': 4,
-            'extra': f'--proxy-url http://127.0.0.1:{port} --session-len 64000 ',
+            'tp_num': 2,
+            'extra': f'--proxy-url http://127.0.0.1:{port} --session-len 46000 --cache-max-entry-count 0.7 ',
             'cuda_prefix': None
         },
         'log_path': config.get('log_path'),

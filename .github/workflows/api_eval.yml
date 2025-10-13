@@ -152,7 +152,7 @@ jobs:
             pytest autotest/evaluate/test_api_evaluate.py -m "gpu_num_8 and ${{matrix.backend}} and infer" -n 1 --run_id ${{ github.event.inputs.run_id || github.run_id }} --alluredir=${{env.REPORT_DIR}} || overall_exit=$?
           fi
           if [ "$execution_mode" = "both" ] || [ "$execution_mode" = "eval" ]; then
-            pytest autotest/evaluate/test_api_evaluate.py -m "${{matrix.backend}} and eval" -n 2 --run_id ${{ github.event.inputs.run_id || github.run_id }} --alluredir=${{env.REPORT_DIR}} || overall_exit=$?
+            pytest autotest/evaluate/test_api_evaluate.py -m "${{matrix.backend}} and eval" -n 4 --run_id ${{ github.event.inputs.run_id || github.run_id }} --alluredir=${{env.REPORT_DIR}} || overall_exit=$?
           fi
           exit $overall_exit
       - name: Clear workspace

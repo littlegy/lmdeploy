@@ -104,7 +104,7 @@ core_summary_groups = [
             # ['hle_llmjudge', 'accuracy'],
             ['aime2025_repeat_32', 'accuracy (32 runs average)'],
             ['GPQA_diamond_repeat_4', 'accuracy (4 runs average)'],
-            ['mmlu', 'naive_average'],
+            ['mmlu_pro', 'naive_average'],
             'mmlu_pro_math',
             'mmlu_pro_other',
             # Remove lcb_code_generation_repeat_6 due to version errors
@@ -121,7 +121,7 @@ summarizer = dict(
         # ['hle_llmjudge', 'accuracy'],
         ['GPQA_diamond_repeat_4', 'accuracy (4 runs average)'],
         ['aime2025_repeat_32', 'accuracy (32 runs average)'],
-        ['mmlu', 'naive_average'],
+        ['mmlu_pro', 'naive_average'],
         'mmlu_pro_math',
         'mmlu_pro_other',
     ],
