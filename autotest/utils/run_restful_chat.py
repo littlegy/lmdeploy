@@ -6,6 +6,7 @@ from time import sleep, time
 
 import allure
 import psutil
+import requests
 from openai import OpenAI
 from pytest_assume.plugin import assume
 from utils.config_utils import _is_bf16_supported_by_device, get_cuda_prefix_by_workerid, get_workerid
@@ -713,6 +714,16 @@ def start_proxy_server(config, worker_id):
     else:
         port = PROXY_PORT + worker_num
 
+    proxy_url = f'http://127.0.0.1:{port}'
+    try:
+        response = requests.get(f'{proxy_url}/nodes/status', timeout=5)
+        if response.status_code == 200:
+            print(f'Terminating existing nodes on proxy {proxy_url}')
+            requests.get(f'{proxy_url}/nodes/terminate_all', timeout=10)
+            sleep(5)
+    except requests.exceptions.RequestException:
+        pass
+
     cmd = (f'lmdeploy serve proxy --server-name 127.0.0.1 --server-port {port} '
            f'--routing-strategy min_expected_latency --serving-strategy Hybrid')
 
@@ -758,29 +769,3 @@ def start_proxy_server(config, worker_id):
 
     print(f'Proxy server started successfully with PID: {pid}')
     return pid, proxy_process
-
-
-def stop_proxy_server(pid, proxy_process):
-    """Stop the proxy server with graceful termination handling."""
-    if pid > 0 and proxy_process:
-        try:
-            parent = psutil.Process(pid)
-            for child in parent.children(recursive=True):
-                child.terminate()
-            parent.terminate()
-
-            # Wait for graceful termination
-            parent.wait(timeout=10)
-        except psutil.TimeoutExpired:
-            # Force kill if graceful termination fails
-            parent.kill()
-        except psutil.NoSuchProcess:
-            # Process already terminated
-            pass
-        except Exception:
-            # Fallback method
-            try:
-                proxy_process.terminate()
-                proxy_process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                proxy_process.kill()

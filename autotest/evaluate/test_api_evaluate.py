@@ -1,7 +1,7 @@
 import pytest
 from utils.config_utils import get_evaluate_pytorch_model_list, get_evaluate_turbomind_model_list, get_workerid
 from utils.evaluate_utils import restful_test
-from utils.run_restful_chat import start_proxy_server, start_restful_api, stop_proxy_server, stop_restful_api
+from utils.run_restful_chat import start_proxy_server, start_restful_api, stop_restful_api
 
 DEFAULT_PORT = 23333
 PROXY_PORT = 8000
@@ -37,7 +37,7 @@ def prepare_environment_judge_evaluate(request, config, worker_id):
         'model': 'Qwen/Qwen2.5-32B-Instruct',
         'backend': 'turbomind',
         'param': {
-            'tp_num': 2,
+            'tp_num': 4,
             'extra': f'--proxy-url http://127.0.0.1:{port} --session-len 64000 ',
             'cuda_prefix': None
         },
@@ -57,7 +57,7 @@ def prepare_environment_judge_evaluate(request, config, worker_id):
         yield request.param
     finally:
         stop_restful_api(judge_pid, judge_start_res, request.param)
-        stop_proxy_server(proxy_pid, proxy_process)
+        stop_restful_api(proxy_pid, proxy_process, request.param)
 
 
 def get_turbomind_model_list(tp_num):
