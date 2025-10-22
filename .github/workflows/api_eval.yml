@@ -128,7 +128,7 @@ jobs:
           python3 -m pip install -r ${{env.OFFLINE_REQUIREMENTS}}
       - name: Install lmdeploy
         run: |
-          python3 -m pip install lmdeploy-*.whl --no-deps
+          python3 -m pip install lmdeploy==0.10.0 --no-deps
           python3 -m pip install -r requirements/test.txt
       - name: Install opencompass
         run: |
