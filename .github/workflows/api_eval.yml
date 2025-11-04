@@ -90,7 +90,7 @@ jobs:
   test_evaluation:
     needs: linux-build
     if: ${{ !cancelled() }}
-    runs-on: [self-hosted, test-140]
+    runs-on: [self-hosted, test-187]
     timeout-minutes: 2400
     strategy:
       fail-fast: false
@@ -106,7 +106,7 @@ jobs:
         - /nvme/qa_test_models/evaluation-reports:/root/evaluation-reports
         - /nvme/qa_test_models:/nvme/qa_test_models
         - /nvme/huggingface_hub:/nvme/huggingface_hub
-        - /mnt/121:/mnt/121
+        - /mnt/187:/mnt/187
         - /usr/share/zoneinfo/Asia/Shanghai:/etc/localtime:ro
     steps:
       - name: Create and change to _wk directory
