@@ -131,7 +131,6 @@ def _run_proxy_distributed_test(config,
                                 eval_config_name='default'):
     assert manager is not None, 'Manager instance must be provided'
 
-    # 特殊模型使用专用评估配置
     if 'gpt' in model_param.get('model', '').lower():
         eval_config_name = 'gpt'
 
@@ -139,13 +138,12 @@ def _run_proxy_distributed_test(config,
     model_name = model_param['model']
     model_path = os.path.join(config['model_path'], model_name)
 
-    # 启动本测试专属的 API Server（每个节点都启动自己的实例）
     api_server = ApiServerPerTest(proxy_manager=manager, model_path=model_path, model_param=model_param)
     api_server.start()
 
     try:
         if manager.is_master:
-            # Master 等待所有实例注册完成
+
             api_server.wait_until_ready()
             print(f'🧪 Master node executing {test_type} test ({eval_config_name})...')
 
@@ -160,15 +158,14 @@ def _run_proxy_distributed_test(config,
             print(f'✅ {test_type} test passed')
 
         else:
-            # Worker 节点进入等待模式，监控 master proxy 是否退出
+
             print(f'⏸️ Worker node {manager.node_rank} waiting for master to complete test...')
             proxy_worker_node_wait(manager, timeout_minutes=4880)
 
     finally:
-        # 每个节点清理自己的 API Server 进程
         api_server.cleanup()
         if manager.is_master:
-            time.sleep(1)  # 给 workers 一点时间感知 proxy 关闭
+            time.sleep(1)
 
 
 def get_turbomind_model_list(tp_num):
