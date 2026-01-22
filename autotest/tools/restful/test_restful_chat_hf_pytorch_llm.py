@@ -4,7 +4,7 @@ import time
 import pytest
 from tools.common_case_config import (MODELSCOPE_CONFIG, PYTORCH_LORA_TEST_LLM_GPU1, PYTORCH_LORA_TEST_LLM_GPU2,
                                       PYTORCH_PR_TEST_LLM_GPU1, PYTORCH_PR_TEST_LLM_GPU2, REASONING_TEST_LLM,
-                                      TOOLCALL_TEST_LLM)
+                                      SPECULATIVE_DECODING_RESTFUL_TEST_LLM, TOOLCALL_TEST_LLM)
 from utils.config_utils import get_case_str_by_config, get_func_config_list, get_workerid
 from utils.constant import PROXY_PORT
 from utils.proxy_distributed_utils import ApiServerPerTest, proxy_worker_node_wait
@@ -230,3 +230,28 @@ def test_restful_chat_tools_tp2(config, run_config, worker_id):
     [item for item in TOOLCALL_TEST_LLM if item['backend'] == BACKEND and item['parallel_config']['tp'] == 4])
 def test_restful_chat_tools_tp4(config, run_config, worker_id):
     run_tools_case(config, run_config, worker_id)
+
+
+@pytest.mark.usefixtures('common_case_config')
+@pytest.mark.flaky(reruns=0)
+@pytest.mark.gpu_num_1
+@pytest.mark.parametrize(
+    'run_config',
+    [item for item in SPECULATIVE_DECODING_RESTFUL_TEST_LLM if item['parallel_config']['tp'] == 1])
+def test_restful_chat_speculative_decoding_tp1(config, run_config, common_case_config, worker_id):
+    case_config = {k: v for k, v in common_case_config.items() if k == 'memory_test'}
+    run_llm_test(config, run_config, case_config, worker_id)
+
+
+@pytest.mark.usefixtures('common_case_config')
+@pytest.mark.flaky(reruns=0)
+@pytest.mark.gpu_num_distributed_tp16
+@pytest.mark.parametrize(
+    'run_config',
+    [item for item in SPECULATIVE_DECODING_RESTFUL_TEST_LLM if item['parallel_config']['tp'] == 16])
+def test_restful_chat_speculative_decoding_tp16(shared_ray_manager, config, run_config, common_case_config, worker_id):
+    case_config = {k: v for k, v in common_case_config.items() if k == 'memory_test'}
+    _run_ray_distributed_test(config=config,
+                              run_config=run_config,
+                              common_case_config=case_config,
+                              manager=shared_ray_manager)

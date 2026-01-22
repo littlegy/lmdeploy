@@ -5,6 +5,7 @@ import fire
 import yaml
 
 from lmdeploy import GenerationConfig, PytorchEngineConfig, TurbomindEngineConfig, pipeline
+from lmdeploy.messages import SpeculativeConfig
 
 gen_config = GenerationConfig(max_new_tokens=500, min_new_tokens=10)
 
@@ -15,6 +16,7 @@ def run_pipeline_chat_test(model_path, run_config, cases_path, is_pr_test: bool 
     quant_policy = run_config.get('quant_policy')
     extra_params = run_config.get('extra_params', {})
     parallel_config = run_config.get('parallel_config', {})
+    speculative_params = run_config.get('speculative_config', {})
 
     if backend == 'pytorch':
         backend_config = PytorchEngineConfig(quant_policy=quant_policy)
@@ -42,8 +44,18 @@ def run_pipeline_chat_test(model_path, run_config, cases_path, is_pr_test: bool 
         except AttributeError:
             print(f"Warning: Cannot set attribute '{key}' on backend_config. Skipping.")
 
+    # Speculative decoding config
+    speculative_config = None
+    if speculative_params:
+        speculative_config = SpeculativeConfig(
+            method=speculative_params.get('method'),
+            num_speculative_tokens=speculative_params.get('num_speculative_tokens', 1),
+            model=speculative_params.get('model', ''),
+        )
+        print('speculative_config: ' + str(speculative_config))
+
     print('backend_config config: ' + str(backend_config))
-    pipe = pipeline(model_path, backend_config=backend_config)
+    pipe = pipeline(model_path, backend_config=backend_config, speculative_config=speculative_config)
 
     cases_path = os.path.join(cases_path)
     with open(cases_path) as f:
