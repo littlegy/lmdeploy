@@ -86,6 +86,20 @@ def get_func_config_list(backend: str,
             run_config['extra_params']['dllm-denoising-steps'] = 4
             run_config['extra_params']['dllm-confidence-threshold'] = 0.9
 
+        if 'kimi' in run_config['model'].lower():
+            para_conf = run_config.get('parallel_config', {})
+            if para_conf.get('dp', 0) == 16 and para_conf.get('ep', 0) == 16:
+                run_config['extra_params']['max-batch-size'] = 256
+
+        if 'Intern-S1-Pro-FP8' in run_config['model'] or 'Intern-S1-Pro-BF16' in run_config['model']:
+            if 'Intern-S1-Pro-FP8' in run_config['model']:
+                run_config['extra_params']['model-format'] = 'fp8'
+            para_conf = run_config.get('parallel_config', {})
+            # For dpep16 configuration, add max-prefill-token-num
+            if para_conf.get('dp', 0) == 16 and para_conf.get('ep', 0) == 16:
+                run_config['extra_params']['max-prefill-token-num'] = 1024
+                run_config['extra_params']['max-batch-size'] = 128
+
     return run_configs
 
 

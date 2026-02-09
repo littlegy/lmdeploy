@@ -29,6 +29,12 @@ def run_pipeline_llm_test(config, run_config, common_case_config, worker_id: str
     run_config_bk = run_config.copy()
     run_config_bk.pop('env', None)
     run_config_bk.pop('model', None)
+
+    if 'speculative_config' in run_config_bk and 'model' in run_config_bk['speculative_config']:
+        draft_model = run_config_bk['speculative_config']['model']
+        if draft_model and not os.path.isabs(draft_model):
+            run_config_bk['speculative_config']['model'] = os.path.join(config.get('model_path'), draft_model)
+
     run_config_string = json.dumps(run_config_bk, ensure_ascii=False, indent=None)
     run_config_string = run_config_string.replace(' ', '').replace('"', '\\"').replace(',', '\\,')
 
