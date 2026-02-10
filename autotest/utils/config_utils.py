@@ -350,7 +350,7 @@ def get_cuda_prefix_by_workerid(worker_id: Optional[str], parallel_config: Dict[
     """Get cuda/ascend visible devices env prefix by worker id & parallel
     config."""
     para_conf = parallel_config or {}
-    device_type = para_conf.get('device', 'cuda')
+    device_type = os.environ.get('DEVICE', 'cuda')
 
     tp_num = para_conf.get('tp')
     if not tp_num:
@@ -394,7 +394,7 @@ def _get_communicator_list(config: Dict, backend: str, parallel_config: Dict[str
     device = config.get('device', None)
 
     if device == 'ascend':
-        return ['hccl']
+        return ['nccl']
     if backend == 'pytorch':
         return ['nccl']
     if ('cp' in parallel_config or 'dp' in parallel_config or 'ep' in parallel_config):
@@ -591,7 +591,7 @@ def test_cli_common_param():
     run_config = {
         'model': 'test/test_dpep16-inner-4bits',
         'backend': 'pytorch',
-        'communicator': 'hccl',
+        'communicator': 'nccl',
         'quant_policy': 0,
         'parallel_config': {
             'tp': 8
@@ -599,7 +599,7 @@ def test_cli_common_param():
     }
 
     cli_params = get_cli_common_param(run_config)
-    assert cli_params == '--backend pytorch --communicator hccl --model-format awq --tp 8', cli_params
+    assert cli_params == '--backend pytorch --communicator nccl --model-format awq --tp 8', cli_params
     os.unsetenv('TEST_ENV')
 
 
@@ -825,7 +825,7 @@ def test_run_config():
     run_config2 = get_func_config_list(backend, parallel_config={'tp': 1}, model_type='chat_model', func_type='func')[0]
     assert run_config2['model'] == 'test/test_tp1'
     assert run_config2['backend'] == 'pytorch'
-    assert run_config2['communicator'] == 'hccl'
+    assert run_config2['communicator'] == 'nccl'
     assert run_config2['quant_policy'] == 0
     assert run_config2['parallel_config'] == {'tp': 1}
     run_config3 = get_func_config_list(backend,
@@ -838,7 +838,7 @@ def test_run_config():
                                        })[0]
     assert run_config3['model'] == 'test/test_tp1'
     assert run_config3['backend'] == 'pytorch'
-    assert run_config3['communicator'] == 'hccl'
+    assert run_config3['communicator'] == 'nccl'
     assert run_config3['quant_policy'] == 0
     assert run_config3['parallel_config'] == {'tp': 1}
     assert run_config3['extra_params']['speculative_algorithm'] == 'eagle'

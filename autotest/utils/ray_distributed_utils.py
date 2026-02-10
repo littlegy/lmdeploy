@@ -158,6 +158,13 @@ class RayLMDeployManager:
         # Derive model_path from config and run_config
         model_path = os.path.join(config['model_path'], run_config['model'])
 
+        # Prepend model_path to speculative-draft-model if it's a relative path
+        extra_params = run_config.get('extra_params', {})
+        if 'speculative-draft-model' in extra_params:
+            draft_model = extra_params['speculative-draft-model']
+            if draft_model and not os.path.isabs(draft_model):
+                extra_params['speculative-draft-model'] = os.path.join(config['model_path'], draft_model)
+
         # Get model-name: use extra_params['model-name'] if specified, otherwise use case_name
         case_name = get_case_str_by_config(run_config)
         extra_params = run_config.get('extra_params', {})

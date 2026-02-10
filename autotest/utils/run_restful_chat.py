@@ -35,6 +35,13 @@ def start_openai_service(config, run_config, worker_id, timeout: int = 1200):
     # Ensure extra_params exists before modifying
     if 'extra_params' not in run_config:
         run_config['extra_params'] = {}
+
+    # Prepend model_path to speculative-draft-model if it's a relative path
+    if 'speculative-draft-model' in run_config['extra_params']:
+        draft_model = run_config['extra_params']['speculative-draft-model']
+        if draft_model and not os.path.isabs(draft_model):
+            run_config['extra_params']['speculative-draft-model'] = os.path.join(config.get('model_path'), draft_model)
+
     run_config['extra_params']['server-port'] = str(port)
     run_config['extra_params']['allow-terminate-by-client'] = None
     model_name = case_name if run_config['extra_params'].get(

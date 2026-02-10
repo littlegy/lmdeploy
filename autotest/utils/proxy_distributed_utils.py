@@ -236,9 +236,15 @@ class ApiServerPerTest:
     def start(self):
         proxy_url = f'http://{self.master_addr}:{self.proxy_port}'
 
+        # Prepend model_path to speculative-draft-model if it's a relative path
+        extra_params = self.run_config.get('extra_params', {})
+        if 'speculative-draft-model' in extra_params:
+            draft_model = extra_params['speculative-draft-model']
+            if draft_model and not os.path.isabs(draft_model):
+                extra_params['speculative-draft-model'] = os.path.join(self.config['model_path'], draft_model)
+
         # Get model-name: use extra_params['model-name'] if specified, otherwise use case_name
         case_name = get_case_str_by_config(self.run_config)
-        extra_params = self.run_config.get('extra_params', {})
         self.model_name = case_name if extra_params.get('model-name', None) is None else extra_params.get('model-name')
 
         cmd = [
