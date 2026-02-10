@@ -21,6 +21,7 @@ config:
         openai/gpt-oss-20b-BF16: 2
         deepseek/DeepSeek-V3.1: 8
         Qwen/Qwen3-30B-A3B-Base: 2
+        JetLM/SDAR-30B-A3B-Sci: 2
         moonshotai/Kimi-K2-Instruct-0905: 16
         Qwen/Qwen3-235B-A22B-Thinking-2507: 8
         internlm/Intern-S1-Pro-FP8: 16
@@ -83,6 +84,7 @@ pytorch_chat_model:
         - deepseek/DeepSeek-V3.1
         - moonshotai/Kimi-K2-Instruct-0905
         - internlm/Intern-S1-Pro-FP8
+        - JetLM/SDAR-30B-A3B-Sci
     dp_ep:
         - moonshotai/Kimi-K2-Instruct-0905
         - Qwen/Qwen3-235B-A22B-Thinking-2507
@@ -169,6 +171,7 @@ pytorch_quantization:
         - moonshotai/Kimi-K2-Instruct-0905
         - Qwen/Qwen3-235B-A22B-Thinking-2507
         - internlm/Intern-S1-Pro-FP8
+        - JetLM/SDAR-30B-A3B-Sci
     no_kvint8:
         - Qwen/Qwen3-235B-A22B-Thinking-2507
         - internlm/Intern-S1-Pro-FP8
@@ -203,6 +206,7 @@ evaluate_model:
     - deepseek/DeepSeek-V3.1
     - moonshotai/Kimi-K2-Instruct-0905
     - internlm/Intern-S1-Pro-FP8
+    - JetLM/SDAR-30B-A3B-Sci
 
 mllm_evaluate_model:
     - internlm/Intern-S1
