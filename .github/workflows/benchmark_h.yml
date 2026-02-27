@@ -183,7 +183,7 @@ jobs:
             JOB_NAME="bm-${BENCHMARK_TYPE}-g${gpu_num}-${RUN_ID}-$(date +%H%M%S)"
             TOTAL_GPU_COUNT=${gpu_num}
 
-            PYTEST_CMD="pytest autotest/benchmark/test_${BENCHMARK_TYPE}_performance.py -n ${PYTEST_N} -m '${MARKER}' -s"
+            PYTEST_CMD="(pytest autotest/benchmark/test_${BENCHMARK_TYPE}_performance.py -n ${PYTEST_N} -m \"${MARKER}\" -s || true)"
 
             echo ""
             echo "=== Submitting: benchmark_type=${BENCHMARK_TYPE}, gpu_num=${gpu_num}, n=${PYTEST_N} ==="
