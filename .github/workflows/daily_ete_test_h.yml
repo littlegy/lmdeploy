@@ -1,0 +1,502 @@
+name: daily_ete_test_h
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_org:
+        required: false
+        description: 'Tested repository organization name. Default is InternLM'
+        type: string
+        default: 'InternLM/lmdeploy'
+      repo_ref:
+        required: false
+        description: 'Set branch or tag or commit id. Default is "main"'
+        type: string
+        default: 'main'
+      backend:
+        required: true
+        description: 'Set backend filter. Default is "["turbomind", "pytorch"]"'
+        type: string
+        default: "['turbomind', 'pytorch']"
+      model:
+        required: true
+        description: 'Set testcase module filter: llm, mllm. Default contains all models'
+        type: string
+        default: "['llm','mllm']"
+      function:
+        required: true
+        description: 'Set testcase function filter: chat, restful, pipeline. Default contains all functions'
+        type: string
+        default: '["pipeline", "restful", "chat"]'
+      use_whl:
+        required: false
+        description: 'true: build whl from source and install; false: use lmdeploy from Docker image directly'
+        type: boolean
+        default: false
+      offline_mode:
+        required: false
+        description: 'When use_whl=true and offline_mode=true, use pre-prepared whl from offline path'
+        type: boolean
+        default: false
+      regression_func:
+        required: true
+        description: 'regression functions'
+        type: string
+        default: "['quant', 'tools','pipeline']"
+      docker_image:
+        required: false
+        description: 'Docker image for rjob submission'
+        type: string
+        default: 'registry.h.pjlab.org.cn/ailab-puyu-puyu_gpu/lmdeploy-dev:bump-v0.12.1-cu12.8'
+      test_env:
+        required: false
+        description: 'Test environment config: h, h800, 3090, 5080, ascend'
+        type: string
+        default: 'h'
+      gpu_per_node:
+        required: false
+        description: 'GPUs per node in OC cluster (default: 8)'
+        type: string
+        default: '8'
+  schedule:
+    - cron: '00 19 * * 0-4'
+
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+  OUTPUT_FOLDER: cuda12.8_dist_${{ github.run_id }}
+  WORK_DIR: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/lmdeploy_spec_new
+  DOCKER_IMAGE: ${{ inputs.docker_image || 'registry.h.pjlab.org.cn/ailab-puyu-puyu_gpu/lmdeploy-dev:bump-v0.12.1-cu12.8' }}
+  TEST_ENV: ${{ inputs.test_env || 'h' }}
+  GPU_PER_NODE: ${{ inputs.gpu_per_node || '8' }}
+  RUN_ID: ${{ inputs.repo_ref || 'main' }}_${{ github.run_id }}
+  REPORT_DIR: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/test-reports/${{ inputs.repo_ref || 'main' }}_${{ github.run_id }}
+  ALLURE_REPORT_DIR: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/test-reports/allure_report/${{ inputs.repo_ref || 'main' }}_${{ github.run_id }}
+  USE_WHL: ${{ inputs.use_whl || 'false' }}
+  OFFLINE_CODE_PATH: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/offline_pkg/lmdeploy
+  COV_PARAM: --cov /opt/py3/lib/python3.10/site-packages/lmdeploy
+
+jobs:
+  linux-build:
+    if: ${{!cancelled() && inputs.use_whl && !inputs.offline_mode}}
+    strategy:
+      matrix:
+        pyver: [py310]
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: ${{ matrix.pyver }}
+      PLAT_NAME: manylinux2014_x86_64
+      DOCKER_TAG: cuda12.8
+    steps:
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          docker-images: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: false
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repo_org || 'InternLM/lmdeploy' }}
+          ref: ${{github.event.inputs.repo_ref || 'main'}}
+      - name: Build
+        run: |
+          echo ${PYTHON_VERSION}
+          echo ${PLAT_NAME}
+          echo ${DOCKER_TAG}
+          echo ${OUTPUT_FOLDER}
+          echo ${GITHUB_RUN_ID}
+          # remove -it
+          sed -i 's/docker run --rm -it/docker run --rm/g' builder/manywheel/build_wheel.sh
+          bash builder/manywheel/build_wheel.sh ${PYTHON_VERSION} ${PLAT_NAME} ${DOCKER_TAG} ${OUTPUT_FOLDER}
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: error
+          path: builder/manywheel/${{ env.OUTPUT_FOLDER }}
+          retention-days: 1
+          name: my-artifact-${{ github.run_id }}-${{ matrix.pyver }}
+
+
+  download_pkgs:
+    needs: linux-build
+    if: ${{!cancelled() && inputs.use_whl}}
+    runs-on: [self-hosted, h-191]
+    timeout-minutes: 50
+    steps:
+      - name: Download Artifacts
+        if: ${{!inputs.offline_mode}}
+        uses: actions/download-artifact@v4
+        with:
+          name: my-artifact-${{ github.run_id }}-py310
+      - name: Copy Artifacts to WORK_DIR
+        if: ${{!inputs.offline_mode}}
+        run: rm ${{env.WORK_DIR}}/lmdeploy-*.whl -f && cp lmdeploy-*.whl ${{env.WORK_DIR}}
+      - name: Copy Artifacts - offline
+        if: ${{inputs.offline_mode}}
+        run: rm ${{env.WORK_DIR}}/lmdeploy-*.whl -f && cp ${{env.OFFLINE_CODE_PATH}}/lmdeploy-*.whl ${{env.WORK_DIR}}
+
+  prepare_env:
+    if: ${{!cancelled()}}
+    needs: download_pkgs
+    runs-on: [self-hosted, h-191]
+    timeout-minutes: 10
+    steps:
+      - name: Mark as start
+        run: |
+          mkdir -p ${{env.REPORT_DIR}}
+          mkdir -p ${{env.ALLURE_REPORT_DIR}}
+          echo "starttime=$(date +%s)" > ${{env.REPORT_DIR}}/status.txt
+
+
+  test_quantization:
+    needs: prepare_env
+    if: ${{!cancelled() && (github.event_name == 'schedule' || contains(fromJSON(github.event.inputs.regression_func), 'quant'))}}
+    runs-on: [self-hosted, h-191]
+    timeout-minutes: 30
+    steps:
+      - name: Submit quantization test job via rjob
+        env:
+          BACKENDS_JSON: ${{ inputs.backend }}
+        run: |
+          set -e
+
+          # ============================================================
+          # Configuration
+          # ============================================================
+          WORK_DIR="${{ env.WORK_DIR }}"
+          DOCKER_IMAGE="${{ env.DOCKER_IMAGE }}"
+          TEST_ENV="${{ env.TEST_ENV }}"
+          GPU_PER_NODE=${{ env.GPU_PER_NODE }}
+          RUN_ID="${{ env.RUN_ID }}"
+          REPORT_DIR="${{ env.REPORT_DIR }}"
+          ALLURE_REPORT_DIR="${{ env.ALLURE_REPORT_DIR }}"
+          COV_PARAM="${{ env.COV_PARAM }}"
+          USE_WHL="${{ env.USE_WHL }}"
+
+          # Resource calculation (8 GPU for quantization)
+          ACTUAL_GPU=${GPU_PER_NODE}
+          CPU_PER_NODE=$(( ACTUAL_GPU * 10 ))
+          MEMORY_MB=$(( ACTUAL_GPU * 50000 ))
+
+          # ============================================================
+          # Parse backends
+          # ============================================================
+          BACKENDS=$(echo "${BACKENDS_JSON}" | tr -d "[]'" | tr ',' ' ')
+          HAS_TURBOMIND=false
+          HAS_PYTORCH=false
+          for b in $BACKENDS; do
+            b=$(echo $b | tr -d ' ')
+            case $b in
+              turbomind) HAS_TURBOMIND=true ;;
+              pytorch) HAS_PYTORCH=true ;;
+            esac
+          done
+
+          # ============================================================
+          # Common env vars & mounts (matching submit_oc.sh)
+          # ============================================================
+          COMMON_ENV_VARS="-e HF_HUB_CACHE=/mnt/shared-storage-user/large-model-center-share-weights/hf_hub \
+            -e TIKTOKEN_CACHE_DIR=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/share_tiktoken \
+            -e TIKTOKEN_ENCODINGS_BASE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/tiktoken_encodings \
+            -e HF_DATASETS_OFFLINE=1 \
+            -e TRANSFORMERS_OFFLINE=1 \
+            -e HF_EVALUATE_OFFLINE=1 \
+            -e HF_HUB_OFFLINE=1 \
+            -e TEST_ENV=${TEST_ENV} \
+            -e RUN_ID=${RUN_ID} \
+            -e PIP_INDEX_URL=\"http://mirrors.i.h.pjlab.org.cn/pypi/simple/\" \
+            -e PIP_EXTRA_INDEX_URL=\"http://pypi.i.h.pjlab.org.cn/brain/dev/+simple\" \
+            -e PIP_TRUSTED_HOST=\"mirrors.i.h.pjlab.org.cn pypi.i.h.pjlab.org.cn\""
+
+          COMMON_MOUNTS="--mount=gpfs://gpfs1/llmrazor-share:/mnt/shared-storage-user/llmrazor-share \
+            --mount=gpfs://gpfs1/large-model-center-share-weights:/mnt/shared-storage-user/large-model-center-share-weights \
+            --mount=gpfs://gpfs1/puyudelivery:/mnt/shared-storage-user/puyudelivery \
+            --mount=gpfs://gpfs2/gpfs2-shared-public:/mnt/shared-storage-gpfs2/gpfs2-shared-public"
+
+          # ============================================================
+          # Pip setup (conditionally install whl or use Docker env)
+          # ============================================================
+          WHL_INSTALL=""
+          if [ "${USE_WHL}" == "true" ]; then
+            WHL_INSTALL="pip uninstall lmdeploy -y; pip install lmdeploy-*.whl --no-deps; "
+          fi
+
+          PIP_SETUP="cd ${WORK_DIR}; \
+            pip install auto_gptq matplotlib attrdict --no-cache-dir; \
+            pip install -r requirements/lite.txt --no-cache-dir; \
+            ${WHL_INSTALL}\
+            pip install -r requirements/test.txt --no-cache-dir; \
+            mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
+
+          # ============================================================
+          # Build test commands based on backend selection
+          # ============================================================
+          TEST_CMDS=""
+          if $HAS_TURBOMIND; then
+            TEST_CMDS+="(pytest autotest/tools/quantization/test_quantization_awq.py -m \\\"not pr_test\\\" -n 8 --alluredir=${ALLURE_REPORT_DIR} --clean-alluredir ${COV_PARAM} || true); "
+          fi
+          if $HAS_PYTORCH; then
+            TEST_CMDS+="(pytest autotest/tools/quantization/test_quantization_w8a8.py -n 8 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+          fi
+
+          if [ -z "$TEST_CMDS" ]; then
+            echo "No test commands to run, skipping..."
+            exit 0
+          fi
+
+          # ============================================================
+          # Submit rjob
+          # ============================================================
+          JOB_NAME="ete-quant-${RUN_ID}-$(date +%H%M%S)"
+
+          RJOB_CMD="rjob submit \
+            --name=${JOB_NAME} \
+            --charged-group=opencompass_gpu \
+            --private-machine=group \
+            --group=opencompass_gpu \
+            --gpu=${ACTUAL_GPU} \
+            --cpu=${CPU_PER_NODE} \
+            --memory=${MEMORY_MB} \
+            --image=${DOCKER_IMAGE} \
+            ${COMMON_ENV_VARS} \
+            ${COMMON_MOUNTS} \
+            --host-network=False \
+            -- bash -exc '${PIP_SETUP} ${TEST_CMDS}'"
+
+          echo "=== Executing ===" && echo "$RJOB_CMD" && echo "================="
+          eval "$RJOB_CMD"
+          echo "=== Submitted: ${JOB_NAME} ==="
+
+
+  test_tools:
+    if: ${{!cancelled() && (github.event_name == 'schedule' || contains(fromJSON(github.event.inputs.regression_func), 'tools'))}}
+    runs-on: [self-hosted, h-191]
+    needs: test_quantization
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: ${{ fromJSON(inputs.backend || '["turbomind", "pytorch"]')}}
+        model: ${{ fromJSON(inputs.model || '["llm", "mllm"]')}}
+        function: ${{ fromJSON(inputs.function || '["pipeline","restful","chat"]')}}
+        exclude:
+          - backend: turbomind
+            model: mllm
+            function: chat
+          - backend: pytorch
+            model: mllm
+            function: chat
+        include:
+          - backend: turbomind
+            model: llm
+            function: other
+    steps:
+      - name: Submit tools test job via rjob
+        env:
+          BACKEND: ${{ matrix.backend }}
+          MODEL: ${{ matrix.model }}
+          FUNC: ${{ matrix.function }}
+        run: |
+          set -e
+
+          # ============================================================
+          # Configuration
+          # ============================================================
+          WORK_DIR="${{ env.WORK_DIR }}"
+          DOCKER_IMAGE="${{ env.DOCKER_IMAGE }}"
+          TEST_ENV="${{ env.TEST_ENV }}"
+          GPU_PER_NODE=${{ env.GPU_PER_NODE }}
+          RUN_ID="${{ env.RUN_ID }}"
+          REPORT_DIR="${{ env.REPORT_DIR }}"
+          ALLURE_REPORT_DIR="${{ env.ALLURE_REPORT_DIR }}"
+          COV_PARAM="${{ env.COV_PARAM }}"
+          USE_WHL="${{ env.USE_WHL }}"
+          BACKEND="${BACKEND}"
+          MODEL="${MODEL}"
+          FUNC="${FUNC}"
+
+          ACTUAL_GPU=${GPU_PER_NODE}
+          CPU_PER_NODE=$(( ACTUAL_GPU * 10 ))
+          MEMORY_MB=$(( ACTUAL_GPU * 50000 ))
+
+          # ============================================================
+          # Common env vars & mounts
+          # ============================================================
+          COMMON_ENV_VARS="-e HF_HUB_CACHE=/mnt/shared-storage-user/large-model-center-share-weights/hf_hub \
+            -e TIKTOKEN_CACHE_DIR=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/share_tiktoken \
+            -e TIKTOKEN_ENCODINGS_BASE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/tiktoken_encodings \
+            -e HF_DATASETS_OFFLINE=1 \
+            -e TRANSFORMERS_OFFLINE=1 \
+            -e HF_EVALUATE_OFFLINE=1 \
+            -e HF_HUB_OFFLINE=1 \
+            -e TEST_ENV=${TEST_ENV} \
+            -e RUN_ID=${RUN_ID} \
+            -e PIP_INDEX_URL=\"http://mirrors.i.h.pjlab.org.cn/pypi/simple/\" \
+            -e PIP_EXTRA_INDEX_URL=\"http://pypi.i.h.pjlab.org.cn/brain/dev/+simple\" \
+            -e PIP_TRUSTED_HOST=\"mirrors.i.h.pjlab.org.cn pypi.i.h.pjlab.org.cn\""
+
+          COMMON_MOUNTS="--mount=gpfs://gpfs1/llmrazor-share:/mnt/shared-storage-user/llmrazor-share \
+            --mount=gpfs://gpfs1/large-model-center-share-weights:/mnt/shared-storage-user/large-model-center-share-weights \
+            --mount=gpfs://gpfs1/puyudelivery:/mnt/shared-storage-user/puyudelivery \
+            --mount=gpfs://gpfs2/gpfs2-shared-public:/mnt/shared-storage-gpfs2/gpfs2-shared-public"
+
+          # ============================================================
+          # Pip setup (conditionally install whl or use Docker env)
+          # ============================================================
+          WHL_INSTALL=""
+          if [ "${USE_WHL}" == "true" ]; then
+            WHL_INSTALL="pip uninstall lmdeploy -y; pip install lmdeploy-*.whl --no-deps; "
+          fi
+
+          PIP_SETUP="cd ${WORK_DIR}; \
+            ${WHL_INSTALL}\
+            pip install -r requirements/test.txt --no-cache-dir; \
+            mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
+
+          # ============================================================
+          # Build test commands based on matrix values
+          # ============================================================
+          TEST_CMDS=""
+
+          if [ "$FUNC" == "chat" ] && [ "$MODEL" == "llm" ]; then
+            TEST_CMDS+="(pytest autotest/tools/chat/test_command_chat_hf_${BACKEND}.py -m \\\"gpu_num_1 and not pr_test\\\" -n 8 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            TEST_CMDS+="(pytest autotest/tools/chat/test_command_chat_hf_${BACKEND}.py -m \\\"gpu_num_2 and not pr_test\\\" -n 4 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            TEST_CMDS+="(pytest autotest/tools/chat/test_command_chat_hf_${BACKEND}.py -m \\\"gpu_num_4 and not pr_test\\\" -n 2 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            TEST_CMDS+="(pytest autotest/tools/chat/test_command_chat_hf_${BACKEND}.py -m \\\"gpu_num_8 and not pr_test\\\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+          elif [ "$FUNC" == "pipeline" ]; then
+            TEST_CMDS+="(pytest autotest/tools/pipeline/test_pipeline_chat_${BACKEND}_${MODEL}.py -m \\\"gpu_num_1 and not pr_test\\\" -n 8 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            TEST_CMDS+="(pytest autotest/tools/pipeline/test_pipeline_chat_${BACKEND}_${MODEL}.py -m \\\"gpu_num_2 and not pr_test\\\" -n 4 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            TEST_CMDS+="(pytest autotest/tools/pipeline/test_pipeline_chat_${BACKEND}_${MODEL}.py -m \\\"gpu_num_4 and not pr_test\\\" -n 2 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            TEST_CMDS+="(pytest autotest/tools/pipeline/test_pipeline_chat_${BACKEND}_${MODEL}.py -m \\\"gpu_num_8 and not pr_test\\\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+          elif [ "$FUNC" == "restful" ]; then
+            TEST_CMDS+="(pytest autotest/tools/restful/test_restful_chat_hf_${BACKEND}_${MODEL}.py -m \\\"gpu_num_1 and not pr_test\\\" -n 8 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            TEST_CMDS+="(pytest autotest/tools/restful/test_restful_chat_hf_${BACKEND}_${MODEL}.py -m \\\"gpu_num_2 and not pr_test\\\" -n 4 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            TEST_CMDS+="(pytest autotest/tools/restful/test_restful_chat_hf_${BACKEND}_${MODEL}.py -m \\\"gpu_num_4 and not pr_test\\\" -n 2 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            TEST_CMDS+="(pytest autotest/tools/restful/test_restful_chat_hf_${BACKEND}_${MODEL}.py -m \\\"gpu_num_8 and not pr_test\\\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+          elif [ "$FUNC" == "other" ]; then
+            TEST_CMDS+="(pytest autotest/toolchain --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+          fi
+
+          if [ -z "$TEST_CMDS" ]; then
+            echo "No test commands for ${BACKEND}/${MODEL}/${FUNC}, skipping..."
+            exit 0
+          fi
+
+          # ============================================================
+          # Submit rjob
+          # ============================================================
+          JOB_NAME="ete-tools-${BACKEND}-${MODEL}-${FUNC}-${RUN_ID}-$(date +%H%M%S)"
+
+          RJOB_CMD="rjob submit \
+            --name=${JOB_NAME} \
+            --charged-group=opencompass_gpu \
+            --private-machine=group \
+            --group=opencompass_gpu \
+            --gpu=${ACTUAL_GPU} \
+            --cpu=${CPU_PER_NODE} \
+            --memory=${MEMORY_MB} \
+            --image=${DOCKER_IMAGE} \
+            ${COMMON_ENV_VARS} \
+            ${COMMON_MOUNTS} \
+            --host-network=False \
+            -- bash -exc '${PIP_SETUP} ${TEST_CMDS}'"
+
+          echo "=== Executing ===" && echo "$RJOB_CMD" && echo "================="
+          eval "$RJOB_CMD"
+          echo "=== Submitted: ${JOB_NAME} ==="
+
+
+  test_pipeline:
+    if: ${{!cancelled() && (github.event_name == 'schedule' || contains(fromJSON(github.event.inputs.regression_func), 'pipeline'))}}
+    runs-on: [self-hosted, h-191]
+    needs: test_quantization
+    timeout-minutes: 30
+    steps:
+      - name: Submit pipeline test job via rjob
+        run: |
+          set -e
+
+          # ============================================================
+          # Configuration
+          # ============================================================
+          WORK_DIR="${{ env.WORK_DIR }}"
+          DOCKER_IMAGE="${{ env.DOCKER_IMAGE }}"
+          TEST_ENV="${{ env.TEST_ENV }}"
+          GPU_PER_NODE=${{ env.GPU_PER_NODE }}
+          RUN_ID="${{ env.RUN_ID }}"
+          REPORT_DIR="${{ env.REPORT_DIR }}"
+          ALLURE_REPORT_DIR="${{ env.ALLURE_REPORT_DIR }}"
+          COV_PARAM="${{ env.COV_PARAM }}"
+          USE_WHL="${{ env.USE_WHL }}"
+
+          ACTUAL_GPU=${GPU_PER_NODE}
+          CPU_PER_NODE=$(( ACTUAL_GPU * 10 ))
+          MEMORY_MB=$(( ACTUAL_GPU * 50000 ))
+
+          # ============================================================
+          # Common env vars & mounts
+          # ============================================================
+          COMMON_ENV_VARS="-e HF_HUB_CACHE=/mnt/shared-storage-user/large-model-center-share-weights/hf_hub \
+            -e TIKTOKEN_CACHE_DIR=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/share_tiktoken \
+            -e TIKTOKEN_ENCODINGS_BASE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/tiktoken_encodings \
+            -e HF_DATASETS_OFFLINE=1 \
+            -e TRANSFORMERS_OFFLINE=1 \
+            -e HF_EVALUATE_OFFLINE=1 \
+            -e HF_HUB_OFFLINE=1 \
+            -e TEST_ENV=${TEST_ENV} \
+            -e RUN_ID=${RUN_ID} \
+            -e PIP_INDEX_URL=\"http://mirrors.i.h.pjlab.org.cn/pypi/simple/\" \
+            -e PIP_EXTRA_INDEX_URL=\"http://pypi.i.h.pjlab.org.cn/brain/dev/+simple\" \
+            -e PIP_TRUSTED_HOST=\"mirrors.i.h.pjlab.org.cn pypi.i.h.pjlab.org.cn\""
+
+          COMMON_MOUNTS="--mount=gpfs://gpfs1/llmrazor-share:/mnt/shared-storage-user/llmrazor-share \
+            --mount=gpfs://gpfs1/large-model-center-share-weights:/mnt/shared-storage-user/large-model-center-share-weights \
+            --mount=gpfs://gpfs1/puyudelivery:/mnt/shared-storage-user/puyudelivery \
+            --mount=gpfs://gpfs2/gpfs2-shared-public:/mnt/shared-storage-gpfs2/gpfs2-shared-public"
+
+          # ============================================================
+          # Pip setup (conditionally install whl or use Docker env)
+          # ============================================================
+          WHL_INSTALL=""
+          if [ "${USE_WHL}" == "true" ]; then
+            WHL_INSTALL="pip uninstall lmdeploy -y; pip install lmdeploy-*.whl --no-deps; "
+          fi
+
+          PIP_SETUP="cd ${WORK_DIR}; \
+            ${WHL_INSTALL}\
+            pip install -r requirements/test.txt --no-cache-dir; \
+            mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
+
+          TEST_CMDS=""
+          TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_func.py -m \\\"not pr_test\\\" -n 4 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+          TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_longtext_func.py -m \\\"gpu_num_1 and not pr_test\\\" -n 8 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+          TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_longtext_func.py -m \\\"gpu_num_2 and not pr_test\\\" -n 4 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+          TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_longtext_func.py -m \\\"gpu_num_4 and not pr_test\\\" -n 2 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+          TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_longtext_func.py -m \\\"gpu_num_8 and not pr_test\\\" -n 1 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+
+          # ============================================================
+          # Submit rjob
+          # ============================================================
+          JOB_NAME="ete-pipeline-${RUN_ID}-$(date +%H%M%S)"
+
+          RJOB_CMD="rjob submit \
+            --name=${JOB_NAME} \
+            --charged-group=opencompass_gpu \
+            --private-machine=group \
+            --group=opencompass_gpu \
+            --gpu=${ACTUAL_GPU} \
+            --cpu=${CPU_PER_NODE} \
+            --memory=${MEMORY_MB} \
+            --image=${DOCKER_IMAGE} \
+            ${COMMON_ENV_VARS} \
+            ${COMMON_MOUNTS} \
+            --host-network=False \
+            -- bash -exc '${PIP_SETUP} ${TEST_CMDS}'"
+
+          echo "=== Executing ===" && echo "$RJOB_CMD" && echo "================="
+          eval "$RJOB_CMD"
+          echo "=== Submitted: ${JOB_NAME} ==="
