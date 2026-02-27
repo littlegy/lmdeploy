@@ -1,0 +1,232 @@
+name: benchmark_test_h
+
+on:
+  workflow_dispatch:
+    inputs:
+      benchmark_type:
+        required: true
+        description: 'Set benchmark type. Default is "["apiserver", "mllm_apiserver", "throughput", "longtext", "prefixcache"]"'
+        type: string
+        default: "['apiserver', 'mllm_apiserver', 'throughput', 'longtext', 'prefixcache']"
+      backend:
+        required: true
+        description: 'Set backend filter. Default is "["turbomind", "pytorch"]"'
+        type: string
+        default: "['turbomind', 'pytorch']"
+      gpu_nums:
+        required: true
+        description: 'GPU numbers to test, comma-separated. e.g. 1,2,4,8'
+        type: string
+        default: '1,2,4,8'
+      docker_image:
+        required: false
+        description: 'Docker image for rjob submission'
+        type: string
+        default: 'registry.h.pjlab.org.cn/ailab-puyu-puyu_gpu/lmdeploy-dev:bump-v0.12.1-cu12.8'
+      run_id:
+        required: false
+        description: 'Custom run ID. If empty, auto-generated timestamp will be used'
+        type: string
+        default: ''
+      test_env:
+        required: false
+        description: 'Test environment config: h, h800, 3090, 5080, ascend'
+        type: string
+        default: 'h'
+      gpu_per_node:
+        required: false
+        description: 'GPUs per node in OC cluster (default: 8)'
+        type: string
+        default: '8'
+
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+  WORK_DIR: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/lmdeploy_spec_new
+  DOCKER_IMAGE: ${{ inputs.docker_image || 'registry.h.pjlab.org.cn/ailab-puyu-puyu_gpu/lmdeploy-dev:bump-v0.12.1-cu12.8' }}
+  TEST_ENV: ${{ inputs.test_env || 'h' }}
+  GPU_PER_NODE: ${{ inputs.gpu_per_node || '8' }}
+
+jobs:
+  benchmark_submit:
+    if: ${{ !cancelled() }}
+    runs-on: [self-hosted, h-191]
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        benchmark_type: ${{ fromJSON(github.event.inputs.benchmark_type) }}
+    steps:
+      - name: Set run ID
+        id: set_run_id
+        run: |
+          if [ -n "${{ inputs.run_id }}" ]; then
+            echo "RUN_ID=${{ inputs.run_id }}" >> $GITHUB_ENV
+          else
+            echo "RUN_ID=$(date +%Y%m%d%H%M)" >> $GITHUB_ENV
+          fi
+
+      - name: Submit benchmark jobs via rjob
+        env:
+          BENCHMARK_TYPE: ${{ matrix.benchmark_type }}
+          BACKENDS_JSON: ${{ inputs.backend }}
+        run: |
+          set -e
+
+          # ============================================================
+          # Configuration
+          # ============================================================
+          WORK_DIR="${{ env.WORK_DIR }}"
+          DOCKER_IMAGE="${{ env.DOCKER_IMAGE }}"
+          TEST_ENV="${{ env.TEST_ENV }}"
+          GPU_PER_NODE=${{ env.GPU_PER_NODE }}
+          RUN_ID="${{ env.RUN_ID }}"
+          GPU_NUMS="${{ inputs.gpu_nums }}"
+          # CPU and memory scale with GPU count
+          # Ratio from submit_oc.sh: 4 GPUs → 40 CPUs, 200000 MB
+          CPU_PER_GPU=10
+          MEMORY_PER_GPU=50000
+
+          # ============================================================
+          # Parse backends
+          # ============================================================
+          BACKENDS=$(echo "${BACKENDS_JSON}" | tr -d "[]'" | tr ',' ' ')
+          HAS_TURBOMIND=false
+          HAS_PYTORCH=false
+          for b in $BACKENDS; do
+            b=$(echo $b | tr -d ' ')
+            case $b in
+              turbomind) HAS_TURBOMIND=true ;;
+              pytorch) HAS_PYTORCH=true ;;
+            esac
+          done
+
+          echo "=== Configuration ==="
+          echo "Benchmark Type: ${BENCHMARK_TYPE}"
+          echo "Backends: turbomind=${HAS_TURBOMIND}, pytorch=${HAS_PYTORCH}"
+          echo "GPU nums: ${GPU_NUMS}"
+          echo "GPU per node: ${GPU_PER_NODE}"
+          echo "Docker image: ${DOCKER_IMAGE}"
+          echo "Test env: ${TEST_ENV}"
+          echo "Run ID: ${RUN_ID}"
+          echo "====================="
+
+          # ============================================================
+          # Common environment variables (matching submit_oc.sh)
+          # ============================================================
+          COMMON_ENV_VARS="-e HF_HUB_CACHE=/mnt/shared-storage-user/large-model-center-share-weights/hf_hub \
+            -e TIKTOKEN_CACHE_DIR=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/share_tiktoken \
+            -e TIKTOKEN_ENCODINGS_BASE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/tiktoken_encodings \
+            -e HF_DATASETS_OFFLINE=1 \
+            -e TRANSFORMERS_OFFLINE=1 \
+            -e HF_EVALUATE_OFFLINE=1 \
+            -e HF_HUB_OFFLINE=1 \
+            -e TEST_ENV=${TEST_ENV} \
+            -e RUN_ID=${RUN_ID} \
+            -e PIP_INDEX_URL=\"http://mirrors.i.h.pjlab.org.cn/pypi/simple/\" \
+            -e PIP_EXTRA_INDEX_URL=\"http://pypi.i.h.pjlab.org.cn/brain/dev/+simple\" \
+            -e PIP_TRUSTED_HOST=\"mirrors.i.h.pjlab.org.cn pypi.i.h.pjlab.org.cn\""
+
+          # ============================================================
+          # Common mount points (matching submit_oc.sh)
+          # ============================================================
+          COMMON_MOUNTS="--mount=gpfs://gpfs1/llmrazor-share:/mnt/shared-storage-user/llmrazor-share \
+            --mount=gpfs://gpfs1/large-model-center-share-weights:/mnt/shared-storage-user/large-model-center-share-weights \
+            --mount=gpfs://gpfs1/puyudelivery:/mnt/shared-storage-user/puyudelivery \
+            --mount=gpfs://gpfs2/gpfs2-shared-public:/mnt/shared-storage-gpfs2/gpfs2-shared-public"
+
+          # ============================================================
+          # Pip setup commands
+          # ============================================================
+          PIP_SETUP="cd ${WORK_DIR}; pip install -r requirements/test.txt --no-cache-dir; pip install datasets;"
+
+          # ============================================================
+          # Submit jobs for each GPU count
+          # ============================================================
+          IFS=',' read -ra GPU_ARRAY <<< "$GPU_NUMS"
+
+          for gpu_num in "${GPU_ARRAY[@]}"; do
+            gpu_num=$(echo $gpu_num | tr -d ' ')
+
+            # Calculate pytest parallelism: n = GPU_PER_NODE / gpu_num
+            if [ $gpu_num -gt 0 ]; then
+              PYTEST_N=$(( GPU_PER_NODE / gpu_num ))
+              [ $PYTEST_N -lt 1 ] && PYTEST_N=1
+            else
+              PYTEST_N=1
+            fi
+
+            # Actual GPU needed = gpu_num * PYTEST_N (capped at GPU_PER_NODE)
+            ACTUAL_GPU=$(( gpu_num * PYTEST_N ))
+            [ $ACTUAL_GPU -gt $GPU_PER_NODE ] && ACTUAL_GPU=$GPU_PER_NODE
+            [ $ACTUAL_GPU -lt $gpu_num ] && ACTUAL_GPU=$gpu_num
+
+            # Scale CPU and memory proportionally to actual GPU count
+            # Ratio from submit_oc.sh: 4 GPUs → 40 CPUs, 200000 MB
+            CPU_PER_NODE=$(( ACTUAL_GPU * CPU_PER_GPU ))
+            MEMORY_MB=$(( ACTUAL_GPU * MEMORY_PER_GPU ))
+
+            # Skip if gpu_num exceeds GPU_PER_NODE
+            if [ $gpu_num -gt $GPU_PER_NODE ]; then
+              echo "WARNING: gpu_num=${gpu_num} > GPU_PER_NODE=${GPU_PER_NODE}, skipping..."
+              continue
+            fi
+
+            # Build pytest marker based on selected backends
+            # Matches the logic in original benchmark.yml:
+            # - Both backends selected: no backend filter
+            # - Only turbomind: add "and turbomind"
+            # - Only pytorch: add "and pytorch"
+            BASE_MARKER="gpu_num_${gpu_num} and not pr_test and not function"
+            if $HAS_TURBOMIND && $HAS_PYTORCH; then
+              MARKER="${BASE_MARKER}"
+            elif $HAS_TURBOMIND && ! $HAS_PYTORCH; then
+              MARKER="${BASE_MARKER} and turbomind"
+            elif ! $HAS_TURBOMIND && $HAS_PYTORCH; then
+              MARKER="${BASE_MARKER} and pytorch"
+            else
+              echo "ERROR: No valid backend selected"
+              continue
+            fi
+
+            JOB_NAME="bm-${BENCHMARK_TYPE}-g${gpu_num}-${RUN_ID}-$(date +%H%M%S)"
+            TOTAL_GPU_COUNT=${gpu_num}
+
+            PYTEST_CMD="pytest autotest/benchmark/test_${BENCHMARK_TYPE}_performance.py -n ${PYTEST_N} -m '${MARKER}' -s"
+
+            echo ""
+            echo "=== Submitting: benchmark_type=${BENCHMARK_TYPE}, gpu_num=${gpu_num}, n=${PYTEST_N} ==="
+            echo "Resources: gpu=${ACTUAL_GPU}, cpu=${CPU_PER_NODE}, memory=${MEMORY_MB}MB"
+            echo "Marker: ${MARKER}"
+            echo "Pytest command: ${PYTEST_CMD}"
+
+            rjob submit \
+              --name=${JOB_NAME} \
+              --charged-group=opencompass_gpu \
+              --private-machine=group \
+              --group=opencompass_gpu \
+              --gpu=${ACTUAL_GPU} \
+              --cpu=${CPU_PER_NODE} \
+              --memory=${MEMORY_MB} \
+              --image=${DOCKER_IMAGE} \
+              ${COMMON_ENV_VARS} \
+              -e TOTAL_GPU_COUNT=${TOTAL_GPU_COUNT} \
+              ${COMMON_MOUNTS} \
+              --host-network=False \
+              -- bash -exc "${PIP_SETUP} ${PYTEST_CMD}"
+
+            echo "=== Submitted: ${JOB_NAME} ==="
+            sleep 2
+          done
+
+      - name: Print summary
+        if: always()
+        run: |
+          echo ""
+          echo "=== Benchmark Submission Summary ==="
+          echo "Benchmark type: ${{ matrix.benchmark_type }}"
+          echo "Backends: ${{ inputs.backend }}"
+          echo "GPU nums: ${{ inputs.gpu_nums }}"
+          echo "Run ID: ${{ env.RUN_ID }}"
+          echo "Docker image: ${{ env.DOCKER_IMAGE }}"
+          echo "Test env: ${{ env.TEST_ENV }}"
+          echo "====================================="
