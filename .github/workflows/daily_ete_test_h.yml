@@ -237,7 +237,7 @@ jobs:
           # ============================================================
           TEST_CMDS=""
           if $HAS_TURBOMIND; then
-            TEST_CMDS+="(pytest autotest/tools/quantization/test_quantization_awq.py -m \\\"not pr_test\\\" -n ${ACTUAL_GPU} --alluredir=${ALLURE_REPORT_DIR} --clean-alluredir ${COV_PARAM} || true); "
+            TEST_CMDS+="(pytest autotest/tools/quantization/test_quantization_awq.py -m \"not pr_test\" -n ${ACTUAL_GPU} --alluredir=${ALLURE_REPORT_DIR} --clean-alluredir ${COV_PARAM} || true); "
           fi
           if $HAS_PYTORCH; then
             TEST_CMDS+="(pytest autotest/tools/quantization/test_quantization_w8a8.py -n ${ACTUAL_GPU} --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
@@ -379,9 +379,9 @@ jobs:
               N=$(( ACTUAL_GPU / gpu_num ))
               [ $N -lt 1 ] && continue
               if [ $N -eq 1 ]; then
-                TEST_CMDS+="(pytest ${TEST_FILE} -m \\\"gpu_num_${gpu_num} and not pr_test\\\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+                TEST_CMDS+="(pytest ${TEST_FILE} -m \"gpu_num_${gpu_num} and not pr_test\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
               else
-                TEST_CMDS+="(pytest ${TEST_FILE} -m \\\"gpu_num_${gpu_num} and not pr_test\\\" -n ${N} --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+                TEST_CMDS+="(pytest ${TEST_FILE} -m \"gpu_num_${gpu_num} and not pr_test\" -n ${N} --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
               fi
             done
           fi
@@ -480,15 +480,15 @@ jobs:
           TEST_CMDS=""
           N_FUNC=$(( ACTUAL_GPU / 2 ))
           [ $N_FUNC -lt 1 ] && N_FUNC=1
-          TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_func.py -m \\\"not pr_test\\\" -n ${N_FUNC} --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+          TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_func.py -m \"not pr_test\" -n ${N_FUNC} --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
 
           for gpu_num in 1 2 4 8; do
             N=$(( ACTUAL_GPU / gpu_num ))
             [ $N -lt 1 ] && continue
             if [ $N -eq 1 ]; then
-              TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_longtext_func.py -m \\\"gpu_num_${gpu_num} and not pr_test\\\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+              TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_longtext_func.py -m \"gpu_num_${gpu_num} and not pr_test\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
             else
-              TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_longtext_func.py -m \\\"gpu_num_${gpu_num} and not pr_test\\\" -n ${N} --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+              TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_longtext_func.py -m \"gpu_num_${gpu_num} and not pr_test\" -n ${N} --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
             fi
           done
 
