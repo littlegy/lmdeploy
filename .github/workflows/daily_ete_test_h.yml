@@ -237,10 +237,10 @@ jobs:
           # ============================================================
           TEST_CMDS=""
           if $HAS_TURBOMIND; then
-            TEST_CMDS+="(pytest autotest/tools/quantization/test_quantization_awq.py -m \\\"not pr_test\\\" -n 8 --alluredir=${ALLURE_REPORT_DIR} --clean-alluredir ${COV_PARAM} || true); "
+            TEST_CMDS+="(pytest autotest/tools/quantization/test_quantization_awq.py -m \\\"not pr_test\\\" -n ${ACTUAL_GPU} --alluredir=${ALLURE_REPORT_DIR} --clean-alluredir ${COV_PARAM} || true); "
           fi
           if $HAS_PYTORCH; then
-            TEST_CMDS+="(pytest autotest/tools/quantization/test_quantization_w8a8.py -n 8 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            TEST_CMDS+="(pytest autotest/tools/quantization/test_quantization_w8a8.py -n ${ACTUAL_GPU} --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
           fi
 
           if [ -z "$TEST_CMDS" ]; then
@@ -267,7 +267,7 @@ jobs:
             --host-network=False \
             -- bash -exc '${PIP_SETUP} ${TEST_CMDS}'"
 
-          echo "=== Executing ===" && echo "$RJOB_CMD" && echo "================="
+          echo "=== Executing ===" && echo "$RJOB_CMD" | sed 's/  */ \\\n  /g' && echo "================="
           eval "$RJOB_CMD"
           echo "=== Submitted: ${JOB_NAME} ==="
 
@@ -359,26 +359,31 @@ jobs:
 
           # ============================================================
           # Build test commands based on matrix values
+          # gpu_num_X marker → -n = ACTUAL_GPU / X
           # ============================================================
           TEST_CMDS=""
 
           if [ "$FUNC" == "chat" ] && [ "$MODEL" == "llm" ]; then
-            TEST_CMDS+="(pytest autotest/tools/chat/test_command_chat_hf_${BACKEND}.py -m \\\"gpu_num_1 and not pr_test\\\" -n 8 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
-            TEST_CMDS+="(pytest autotest/tools/chat/test_command_chat_hf_${BACKEND}.py -m \\\"gpu_num_2 and not pr_test\\\" -n 4 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
-            TEST_CMDS+="(pytest autotest/tools/chat/test_command_chat_hf_${BACKEND}.py -m \\\"gpu_num_4 and not pr_test\\\" -n 2 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
-            TEST_CMDS+="(pytest autotest/tools/chat/test_command_chat_hf_${BACKEND}.py -m \\\"gpu_num_8 and not pr_test\\\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            TEST_FILE="autotest/tools/chat/test_command_chat_hf_${BACKEND}.py"
           elif [ "$FUNC" == "pipeline" ]; then
-            TEST_CMDS+="(pytest autotest/tools/pipeline/test_pipeline_chat_${BACKEND}_${MODEL}.py -m \\\"gpu_num_1 and not pr_test\\\" -n 8 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
-            TEST_CMDS+="(pytest autotest/tools/pipeline/test_pipeline_chat_${BACKEND}_${MODEL}.py -m \\\"gpu_num_2 and not pr_test\\\" -n 4 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
-            TEST_CMDS+="(pytest autotest/tools/pipeline/test_pipeline_chat_${BACKEND}_${MODEL}.py -m \\\"gpu_num_4 and not pr_test\\\" -n 2 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
-            TEST_CMDS+="(pytest autotest/tools/pipeline/test_pipeline_chat_${BACKEND}_${MODEL}.py -m \\\"gpu_num_8 and not pr_test\\\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            TEST_FILE="autotest/tools/pipeline/test_pipeline_chat_${BACKEND}_${MODEL}.py"
           elif [ "$FUNC" == "restful" ]; then
-            TEST_CMDS+="(pytest autotest/tools/restful/test_restful_chat_hf_${BACKEND}_${MODEL}.py -m \\\"gpu_num_1 and not pr_test\\\" -n 8 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
-            TEST_CMDS+="(pytest autotest/tools/restful/test_restful_chat_hf_${BACKEND}_${MODEL}.py -m \\\"gpu_num_2 and not pr_test\\\" -n 4 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
-            TEST_CMDS+="(pytest autotest/tools/restful/test_restful_chat_hf_${BACKEND}_${MODEL}.py -m \\\"gpu_num_4 and not pr_test\\\" -n 2 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
-            TEST_CMDS+="(pytest autotest/tools/restful/test_restful_chat_hf_${BACKEND}_${MODEL}.py -m \\\"gpu_num_8 and not pr_test\\\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            TEST_FILE="autotest/tools/restful/test_restful_chat_hf_${BACKEND}_${MODEL}.py"
           elif [ "$FUNC" == "other" ]; then
+            TEST_FILE=""
             TEST_CMDS+="(pytest autotest/toolchain --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+          fi
+
+          if [ -n "$TEST_FILE" ]; then
+            for gpu_num in 1 2 4 8; do
+              N=$(( ACTUAL_GPU / gpu_num ))
+              [ $N -lt 1 ] && continue
+              if [ $N -eq 1 ]; then
+                TEST_CMDS+="(pytest ${TEST_FILE} -m \\\"gpu_num_${gpu_num} and not pr_test\\\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+              else
+                TEST_CMDS+="(pytest ${TEST_FILE} -m \\\"gpu_num_${gpu_num} and not pr_test\\\" -n ${N} --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+              fi
+            done
           fi
 
           if [ -z "$TEST_CMDS" ]; then
@@ -405,7 +410,7 @@ jobs:
             --host-network=False \
             -- bash -exc '${PIP_SETUP} ${TEST_CMDS}'"
 
-          echo "=== Executing ===" && echo "$RJOB_CMD" && echo "================="
+          echo "=== Executing ===" && echo "$RJOB_CMD" | sed 's/  */ \\\n  /g' && echo "================="
           eval "$RJOB_CMD"
           echo "=== Submitted: ${JOB_NAME} ==="
 
@@ -471,12 +476,21 @@ jobs:
             pip install -r requirements/test.txt --no-cache-dir; \
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
+          # gpu_num_X marker → -n = ACTUAL_GPU / X
           TEST_CMDS=""
-          TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_func.py -m \\\"not pr_test\\\" -n 4 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
-          TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_longtext_func.py -m \\\"gpu_num_1 and not pr_test\\\" -n 8 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
-          TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_longtext_func.py -m \\\"gpu_num_2 and not pr_test\\\" -n 4 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
-          TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_longtext_func.py -m \\\"gpu_num_4 and not pr_test\\\" -n 2 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
-          TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_longtext_func.py -m \\\"gpu_num_8 and not pr_test\\\" -n 1 --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+          N_FUNC=$(( ACTUAL_GPU / 2 ))
+          [ $N_FUNC -lt 1 ] && N_FUNC=1
+          TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_func.py -m \\\"not pr_test\\\" -n ${N_FUNC} --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+
+          for gpu_num in 1 2 4 8; do
+            N=$(( ACTUAL_GPU / gpu_num ))
+            [ $N -lt 1 ] && continue
+            if [ $N -eq 1 ]; then
+              TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_longtext_func.py -m \\\"gpu_num_${gpu_num} and not pr_test\\\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            else
+              TEST_CMDS+="(pytest autotest/interface/pipeline/test_pipeline_longtext_func.py -m \\\"gpu_num_${gpu_num} and not pr_test\\\" -n ${N} --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            fi
+          done
 
           # ============================================================
           # Submit rjob
@@ -497,6 +511,6 @@ jobs:
             --host-network=False \
             -- bash -exc '${PIP_SETUP} ${TEST_CMDS}'"
 
-          echo "=== Executing ===" && echo "$RJOB_CMD" && echo "================="
+          echo "=== Executing ===" && echo "$RJOB_CMD" | sed 's/  */ \\\n  /g' && echo "================="
           eval "$RJOB_CMD"
           echo "=== Submitted: ${JOB_NAME} ==="
