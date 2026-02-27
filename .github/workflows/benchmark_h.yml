@@ -3,6 +3,11 @@ name: benchmark_test_h
 on:
   workflow_dispatch:
     inputs:
+      repo_ref:
+        required: false
+        description: 'Set branch or tag or commit id. Default is "main"'
+        type: string
+        default: 'main'
       benchmark_type:
         required: true
         description: 'Set benchmark type. Default is "["apiserver", "mllm_apiserver", "throughput", "longtext", "prefixcache"]"'
@@ -23,11 +28,6 @@ on:
         description: 'Docker image for rjob submission'
         type: string
         default: 'registry.h.pjlab.org.cn/ailab-puyu-puyu_gpu/lmdeploy-dev:bump-v0.12.1-cu12.8'
-      run_id:
-        required: false
-        description: 'Custom run ID. If empty, auto-generated timestamp will be used'
-        type: string
-        default: ''
       test_env:
         required: false
         description: 'Test environment config: h, h800, 3090, 5080, ascend'
@@ -45,6 +45,7 @@ env:
   DOCKER_IMAGE: ${{ inputs.docker_image || 'registry.h.pjlab.org.cn/ailab-puyu-puyu_gpu/lmdeploy-dev:bump-v0.12.1-cu12.8' }}
   TEST_ENV: ${{ inputs.test_env || 'h' }}
   GPU_PER_NODE: ${{ inputs.gpu_per_node || '8' }}
+  RUN_ID: ${{ inputs.repo_ref }}_${{ github.run_id }}
 
 jobs:
   benchmark_submit:
@@ -56,15 +57,6 @@ jobs:
       matrix:
         benchmark_type: ${{ fromJSON(github.event.inputs.benchmark_type) }}
     steps:
-      - name: Set run ID
-        id: set_run_id
-        run: |
-          if [ -n "${{ inputs.run_id }}" ]; then
-            echo "RUN_ID=${{ inputs.run_id }}" >> $GITHUB_ENV
-          else
-            echo "RUN_ID=$(date +%Y%m%d%H%M)" >> $GITHUB_ENV
-          fi
-
       - name: Submit benchmark jobs via rjob
         env:
           BENCHMARK_TYPE: ${{ matrix.benchmark_type }}
@@ -199,7 +191,8 @@ jobs:
             echo "Marker: ${MARKER}"
             echo "Pytest command: ${PYTEST_CMD}"
 
-            rjob submit \
+            # Build full rjob command as string and eval (same pattern as submit_oc.sh)
+            RJOB_CMD="rjob submit \
               --name=${JOB_NAME} \
               --charged-group=opencompass_gpu \
               --private-machine=group \
@@ -212,7 +205,10 @@ jobs:
               -e TOTAL_GPU_COUNT=${TOTAL_GPU_COUNT} \
               ${COMMON_MOUNTS} \
               --host-network=False \
-              -- bash -exc "${PIP_SETUP} ${PYTEST_CMD}"
+              -- bash -exc '${PIP_SETUP} ${PYTEST_CMD}'"
+
+            echo "=== Executing ===" && echo "$RJOB_CMD" && echo "================="
+            eval "$RJOB_CMD"
 
             echo "=== Submitted: ${JOB_NAME} ==="
             sleep 2
