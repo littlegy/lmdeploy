@@ -12,6 +12,30 @@ SUFFIX_INNER_GPTQ = '-inner-gptq'
 SUFFIX_INNER_W8A8 = '-inner-w8a8'
 
 
+def resolve_extra_params(extra_params: Dict[str, Any], model_base_path: str) -> None:
+    """Resolve relative model paths in extra_params to absolute paths.
+
+    Centralised helper so that every call-site does not need its own
+    ``if key in extra_params …`` guard – adding a new key here is enough.
+    """
+    # Keys in extra_params whose string values are relative model paths
+    model_path_keys = ['speculative-draft-model']
+
+    # Flat string-valued keys
+    for key in model_path_keys:
+        if key in extra_params:
+            value = extra_params[key]
+            if value and isinstance(value, str) and not os.path.isabs(value):
+                extra_params[key] = os.path.join(model_base_path, value)
+
+    # Nested speculative_config (pipeline usage)
+    spec_cfg = extra_params.get('speculative_config')
+    if isinstance(spec_cfg, dict) and 'model' in spec_cfg:
+        model = spec_cfg['model']
+        if model and isinstance(model, str) and not os.path.isabs(model):
+            spec_cfg['model'] = os.path.join(model_base_path, model)
+
+
 def get_func_config_list(backend: str,
                          parallel_config: Dict[str, int],
                          model_type: str = 'chat_model',

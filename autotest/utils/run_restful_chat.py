@@ -8,7 +8,8 @@ import psutil
 import requests
 from openai import OpenAI
 from pytest_assume.plugin import assume
-from utils.config_utils import get_case_str_by_config, get_cli_common_param, get_cuda_prefix_by_workerid, get_workerid
+from utils.config_utils import (get_case_str_by_config, get_cli_common_param, get_cuda_prefix_by_workerid, get_workerid,
+                                resolve_extra_params)
 from utils.constant import DEFAULT_PORT, DEFAULT_SERVER
 from utils.restful_return_check import assert_chat_completions_batch_return
 from utils.rule_condition_assert import assert_result
@@ -36,11 +37,7 @@ def start_openai_service(config, run_config, worker_id, timeout: int = 1200):
     if 'extra_params' not in run_config:
         run_config['extra_params'] = {}
 
-    # Prepend model_path to speculative-draft-model if it's a relative path
-    if 'speculative-draft-model' in run_config['extra_params']:
-        draft_model = run_config['extra_params']['speculative-draft-model']
-        if draft_model and not os.path.isabs(draft_model):
-            run_config['extra_params']['speculative-draft-model'] = os.path.join(config.get('model_path'), draft_model)
+    resolve_extra_params(run_config['extra_params'], config.get('model_path'))
 
     run_config['extra_params']['server-port'] = str(port)
     run_config['extra_params']['allow-terminate-by-client'] = None

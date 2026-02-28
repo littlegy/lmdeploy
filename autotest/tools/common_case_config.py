@@ -360,12 +360,12 @@ BASE_SPECULATIVE_DECODING_PIPELINE_TEST_LLM = [{
         'tp': 1
     },
     'extra_params': {
-        'max_batch_size': 128
-    },
-    'speculative_config': {
-        'method': 'eagle3',
-        'num_speculative_tokens': 3,
-        'model': 'yuhuili/EAGLE3-LLaMA3.1-Instruct-8B'
+        'max_batch_size': 128,
+        'speculative_config': {
+            'method': 'eagle3',
+            'num_speculative_tokens': 3,
+            'model': 'yuhuili/EAGLE3-LLaMA3.1-Instruct-8B'
+        }
     }
 }]
 

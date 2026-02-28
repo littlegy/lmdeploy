@@ -172,9 +172,11 @@ pytorch_quantization:
         - Qwen/Qwen3-235B-A22B-Thinking-2507
         - internlm/Intern-S1-Pro-FP8
         - JetLM/SDAR-30B-A3B-Sci
+        - deepseek/DeepSeek-V3.1
     no_kvint8:
         - Qwen/Qwen3-235B-A22B-Thinking-2507
         - internlm/Intern-S1-Pro-FP8
+        - deepseek/DeepSeek-V3.1
 
 longtext_model:
     - Qwen/Qwen3-30B-A3B

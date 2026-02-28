@@ -6,7 +6,7 @@ import time
 import allure
 from pytest_assume.plugin import assume
 from utils.common_utils import execute_command_with_logging
-from utils.config_utils import get_case_str_by_config, get_cuda_prefix_by_workerid, get_workerid
+from utils.config_utils import get_case_str_by_config, get_cuda_prefix_by_workerid, get_workerid, resolve_extra_params
 from utils.rule_condition_assert import assert_result
 
 
@@ -30,10 +30,7 @@ def run_pipeline_llm_test(config, run_config, common_case_config, worker_id: str
     run_config_bk.pop('env', None)
     run_config_bk.pop('model', None)
 
-    if 'speculative_config' in run_config_bk and 'model' in run_config_bk['speculative_config']:
-        draft_model = run_config_bk['speculative_config']['model']
-        if draft_model and not os.path.isabs(draft_model):
-            run_config_bk['speculative_config']['model'] = os.path.join(config.get('model_path'), draft_model)
+    resolve_extra_params(run_config_bk.get('extra_params', {}), config.get('model_path'))
 
     run_config_string = json.dumps(run_config_bk, ensure_ascii=False, indent=None)
     run_config_string = run_config_string.replace(' ', '').replace('"', '\\"').replace(',', '\\,')

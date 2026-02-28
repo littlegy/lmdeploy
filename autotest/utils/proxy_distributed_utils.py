@@ -6,7 +6,7 @@ import time
 from typing import Any, Dict, Tuple
 
 import requests
-from utils.config_utils import get_case_str_by_config, get_cli_common_param
+from utils.config_utils import get_case_str_by_config, get_cli_common_param, resolve_extra_params
 from utils.ray_distributed_utils import verify_service_functionality
 
 time_time = time.time
@@ -236,12 +236,8 @@ class ApiServerPerTest:
     def start(self):
         proxy_url = f'http://{self.master_addr}:{self.proxy_port}'
 
-        # Prepend model_path to speculative-draft-model if it's a relative path
         extra_params = self.run_config.get('extra_params', {})
-        if 'speculative-draft-model' in extra_params:
-            draft_model = extra_params['speculative-draft-model']
-            if draft_model and not os.path.isabs(draft_model):
-                extra_params['speculative-draft-model'] = os.path.join(self.config['model_path'], draft_model)
+        resolve_extra_params(extra_params, self.config['model_path'])
 
         # Get model-name: use extra_params['model-name'] if specified, otherwise use case_name
         case_name = get_case_str_by_config(self.run_config)

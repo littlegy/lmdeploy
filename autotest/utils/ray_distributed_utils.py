@@ -7,7 +7,7 @@ from time import time as time_time
 from typing import Any, Dict
 
 import requests
-from utils.config_utils import get_case_str_by_config, get_cli_common_param
+from utils.config_utils import get_case_str_by_config, get_cli_common_param, resolve_extra_params
 
 # Default constants
 LM_DEPLOY_API_PORT = 8000
@@ -158,12 +158,8 @@ class RayLMDeployManager:
         # Derive model_path from config and run_config
         model_path = os.path.join(config['model_path'], run_config['model'])
 
-        # Prepend model_path to speculative-draft-model if it's a relative path
         extra_params = run_config.get('extra_params', {})
-        if 'speculative-draft-model' in extra_params:
-            draft_model = extra_params['speculative-draft-model']
-            if draft_model and not os.path.isabs(draft_model):
-                extra_params['speculative-draft-model'] = os.path.join(config['model_path'], draft_model)
+        resolve_extra_params(extra_params, config['model_path'])
 
         # Get model-name: use extra_params['model-name'] if specified, otherwise use case_name
         case_name = get_case_str_by_config(run_config)
