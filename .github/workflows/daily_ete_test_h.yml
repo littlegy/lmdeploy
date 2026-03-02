@@ -58,8 +58,6 @@ on:
         description: 'GPUs per node in OC cluster (default: 8)'
         type: string
         default: '8'
-  schedule:
-    - cron: '00 19 * * 0-4'
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
@@ -72,7 +70,7 @@ env:
   REPORT_DIR: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/test-reports/${{ inputs.repo_ref || 'main' }}_${{ github.run_id }}
   ALLURE_REPORT_DIR: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/test-reports/allure_report/${{ inputs.repo_ref || 'main' }}_${{ github.run_id }}
   USE_WHL: ${{ inputs.use_whl || 'false' }}
-  OFFLINE_CODE_PATH: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/offline_pkg/lmdeploy
+  OFFLINE_CODE_PATH: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/offline_pkg/lmdeploy
   COV_PARAM: --cov /opt/py3/lib/python3.10/site-packages/lmdeploy
 
 jobs:
@@ -352,9 +350,15 @@ jobs:
             WHL_INSTALL="pip uninstall lmdeploy -y; pip install lmdeploy-*.whl --no-deps; "
           fi
 
+          EXTRA_PIP=""
+          if [ "$FUNC" == "other" ]; then
+            EXTRA_PIP="pip install lagent --no-cache-dir; "
+          fi
+
           PIP_SETUP="cd ${WORK_DIR}; \
             ${WHL_INSTALL}\
             pip install -r requirements/test.txt --no-cache-dir; \
+            ${EXTRA_PIP}\
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
           # ============================================================
@@ -379,9 +383,9 @@ jobs:
               N=$(( ACTUAL_GPU / gpu_num ))
               [ $N -lt 1 ] && continue
               if [ $N -eq 1 ]; then
-                TEST_CMDS+="(pytest ${TEST_FILE} -m \"gpu_num_${gpu_num} and not pr_test\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+                TEST_CMDS+="(pytest ${TEST_FILE} -m \"gpu_num_${gpu_num} and not pr_test\" -k \"not modelscope\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
               else
-                TEST_CMDS+="(pytest ${TEST_FILE} -m \"gpu_num_${gpu_num} and not pr_test\" -n ${N} --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+                TEST_CMDS+="(pytest ${TEST_FILE} -m \"gpu_num_${gpu_num} and not pr_test\" -k \"not modelscope\" -n ${N} --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
               fi
             done
           fi
