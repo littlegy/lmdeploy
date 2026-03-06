@@ -198,6 +198,7 @@ jobs:
           # Common env vars & mounts (matching submit_oc.sh)
           # ============================================================
           COMMON_ENV_VARS="-e HF_HUB_CACHE=/mnt/shared-storage-user/large-model-center-share-weights/hf_hub \
+            -e HF_DATASETS_CACHE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/hf_cache \
             -e TIKTOKEN_CACHE_DIR=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/share_tiktoken \
             -e TIKTOKEN_ENCODINGS_BASE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/tiktoken_encodings \
             -e HF_DATASETS_OFFLINE=1 \
@@ -325,6 +326,7 @@ jobs:
           # Common env vars & mounts
           # ============================================================
           COMMON_ENV_VARS="-e HF_HUB_CACHE=/mnt/shared-storage-user/large-model-center-share-weights/hf_hub \
+            -e HF_DATASETS_CACHE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/hf_cache \
             -e TIKTOKEN_CACHE_DIR=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/share_tiktoken \
             -e TIKTOKEN_ENCODINGS_BASE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/tiktoken_encodings \
             -e HF_DATASETS_OFFLINE=1 \
@@ -450,6 +452,7 @@ jobs:
           # Common env vars & mounts
           # ============================================================
           COMMON_ENV_VARS="-e HF_HUB_CACHE=/mnt/shared-storage-user/large-model-center-share-weights/hf_hub \
+            -e HF_DATASETS_CACHE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/hf_cache \
             -e TIKTOKEN_CACHE_DIR=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/share_tiktoken \
             -e TIKTOKEN_ENCODINGS_BASE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/tiktoken_encodings \
             -e HF_DATASETS_OFFLINE=1 \
