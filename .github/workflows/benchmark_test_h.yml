@@ -48,10 +48,15 @@ on:
         description: 'GPUs per node in OC cluster (default: 8)'
         type: string
         default: '8'
+      work_dir:
+        required: false
+        description: 'Working directory for code repo (contains requirements/, autotest/, etc.)'
+        type: string
+        default: '/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/lmdeploy_spec_new'
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-  WORK_DIR: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/lmdeploy_spec_new
+  WORK_DIR: ${{ inputs.work_dir || '/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/lmdeploy_spec_new' }}
   DOCKER_IMAGE: ${{ inputs.docker_image || 'registry.h.pjlab.org.cn/ailab-puyu-puyu_gpu/lmdeploy-dev:bump-v0.12.1-cu12.8' }}
   TEST_ENV: ${{ inputs.test_env || 'h' }}
   GPU_PER_NODE: ${{ inputs.gpu_per_node || '8' }}
