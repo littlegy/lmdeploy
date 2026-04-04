@@ -229,7 +229,6 @@ jobs:
           fi
 
           PIP_SETUP="cd ${WORK_DIR}; \
-            pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/fast_hadamard_transform-1.1.0+cu12torch2.10cxx11abiTRUE-cp310-cp310-linux_x86_64.whl; \
             pip install auto_gptq matplotlib attrdict --no-cache-dir; \
             pip install -r requirements/lite.txt --no-cache-dir; \
             ${WHL_INSTALL}\
@@ -370,7 +369,6 @@ jobs:
           fi
 
           PIP_SETUP="cd ${WORK_DIR}; \
-            pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/fast_hadamard_transform-1.1.0+cu12torch2.10cxx11abiTRUE-cp310-cp310-linux_x86_64.whl; \
             ${WHL_INSTALL}\
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
             pip install -r requirements/test.txt --no-cache-dir; \
@@ -499,7 +497,6 @@ jobs:
           fi
 
           PIP_SETUP="cd ${WORK_DIR}; \
-            pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/fast_hadamard_transform-1.1.0+cu12torch2.10cxx11abiTRUE-cp310-cp310-linux_x86_64.whl; \
             ${WHL_INSTALL}\
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
             pip install -r requirements/test.txt --no-cache-dir; \
@@ -728,7 +725,6 @@ jobs:
           fi
 
           PIP_SETUP="cd ${LMEPLOY_TOOL_DIR}; \
-            pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/fast_hadamard_transform-1.1.0+cu12torch2.10cxx11abiTRUE-cp310-cp310-linux_x86_64.whl; \
             ${WHL_INSTALL}\
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
             pip install -r requirements/test.txt --no-cache-dir 2>/dev/null || true; \
