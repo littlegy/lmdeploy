@@ -213,7 +213,8 @@ jobs:
           COMMON_MOUNTS="--mount=gpfs://gpfs1/llmrazor-share:/mnt/shared-storage-user/llmrazor-share \
             --mount=gpfs://gpfs1/large-model-center-share-weights:/mnt/shared-storage-user/large-model-center-share-weights \
             --mount=gpfs://gpfs1/puyudelivery:/mnt/shared-storage-user/puyudelivery \
-            --mount=gpfs://gpfs2/gpfs2-shared-public:/mnt/shared-storage-gpfs2/gpfs2-shared-public"
+            --mount=gpfs://gpfs2/gpfs2-shared-public:/mnt/shared-storage-gpfs2/gpfs2-shared-public \
+            --mount=gpfs://gpfs2/llmit1:/mnt/shared-storage-gpfs2/llmit1"
 
           # ============================================================
           # Pip setup (conditionally install whl or use Docker env)
@@ -366,7 +367,8 @@ jobs:
           COMMON_MOUNTS="--mount=gpfs://gpfs1/llmrazor-share:/mnt/shared-storage-user/llmrazor-share \
             --mount=gpfs://gpfs1/large-model-center-share-weights:/mnt/shared-storage-user/large-model-center-share-weights \
             --mount=gpfs://gpfs1/puyudelivery:/mnt/shared-storage-user/puyudelivery \
-            --mount=gpfs://gpfs2/gpfs2-shared-public:/mnt/shared-storage-gpfs2/gpfs2-shared-public"
+            --mount=gpfs://gpfs2/gpfs2-shared-public:/mnt/shared-storage-gpfs2/gpfs2-shared-public \
+            --mount=gpfs://gpfs2/llmit1:/mnt/shared-storage-gpfs2/llmit1"
 
           # ============================================================
           # Pip setup (conditionally install whl or use Docker env)
@@ -502,7 +504,8 @@ jobs:
           COMMON_MOUNTS="--mount=gpfs://gpfs1/llmrazor-share:/mnt/shared-storage-user/llmrazor-share \
             --mount=gpfs://gpfs1/large-model-center-share-weights:/mnt/shared-storage-user/large-model-center-share-weights \
             --mount=gpfs://gpfs1/puyudelivery:/mnt/shared-storage-user/puyudelivery \
-            --mount=gpfs://gpfs2/gpfs2-shared-public:/mnt/shared-storage-gpfs2/gpfs2-shared-public"
+            --mount=gpfs://gpfs2/gpfs2-shared-public:/mnt/shared-storage-gpfs2/gpfs2-shared-public \
+            --mount=gpfs://gpfs2/llmit1:/mnt/shared-storage-gpfs2/llmit1"
 
           # ============================================================
           # Pip setup (conditionally install whl or use Docker env)
@@ -799,7 +802,8 @@ jobs:
           COMMON_MOUNTS="--mount=gpfs://gpfs1/llmrazor-share:/mnt/shared-storage-user/llmrazor-share \
             --mount=gpfs://gpfs1/large-model-center-share-weights:/mnt/shared-storage-user/large-model-center-share-weights \
             --mount=gpfs://gpfs1/puyudelivery:/mnt/shared-storage-user/puyudelivery \
-            --mount=gpfs://gpfs2/gpfs2-shared-public:/mnt/shared-storage-gpfs2/gpfs2-shared-public"
+            --mount=gpfs://gpfs2/gpfs2-shared-public:/mnt/shared-storage-gpfs2/gpfs2-shared-public \
+            --mount=gpfs://gpfs2/llmit1:/mnt/shared-storage-gpfs2/llmit1"
 
           # ============================================================
           # Pip setup (conditionally install whl or use Docker env)
