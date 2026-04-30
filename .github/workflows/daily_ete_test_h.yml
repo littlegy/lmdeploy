@@ -738,7 +738,7 @@ jobs:
 
           FUNC_TESTS_DIR="/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/func_tests"
           LLM_DIST_DIR="/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/llm_distributed"
-          LMEPLOY_TOOL_DIR="/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/lmeploy_sleep"
+          LMEPLOY_TOOL_DIR="/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/lmdeploy_sleep"
 
           # matrix.gpu = 逻辑卡数（TOTAL_GPU_COUNT / tp），与 func_tests/submit_interface_tests.sh 一致：
           # - rjob --gpu 默认 = 逻辑卡数（不再 ×2；2×32G 与 1×64G 总量等价）
