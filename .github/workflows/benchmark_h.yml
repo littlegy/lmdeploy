@@ -53,6 +53,11 @@ on:
         description: 'Working directory for code repo (contains requirements/, autotest/, etc.)'
         type: string
         default: '/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/lmdeploy_sleep'
+      transformers_version:
+        required: false
+        description: 'Optional transformers version override (e.g. 4.57.6). Empty means use image default'
+        type: string
+        default: ''
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
@@ -64,6 +69,7 @@ env:
   REPORT_DIR: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/benchmark_report/${{ inputs.repo_ref }}_${{ github.run_id }}
   ALLURE_REPORT_DIR: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/benchmark_report/allure_report/${{ inputs.repo_ref }}_${{ github.run_id }}
   USE_WHL: ${{ inputs.use_whl || 'false' }}
+  TRANSFORMERS_VERSION: ${{ inputs.transformers_version || '' }}
 
 jobs:
   linux-build:
@@ -215,12 +221,17 @@ jobs:
           if [ "${USE_WHL}" == "true" ]; then
             WHL_INSTALL="pip uninstall lmdeploy -y; pip install lmdeploy-*.whl --no-deps; "
           fi
+          TRANSFORMERS_PIP=""
+          if [ -n "${TRANSFORMERS_VERSION}" ]; then
+            TRANSFORMERS_PIP="pip install transformers==${TRANSFORMERS_VERSION} --no-cache-dir; "
+          fi
 
           PIP_SETUP="cd ${WORK_DIR}; \
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/fast_hadamard_transform-1.1.0+cu12torch2.10cxx11abiTRUE-cp312-cp312-linux_x86_64.whl; \
             ${WHL_INSTALL}\
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
             pip install -r requirements/test.txt --no-cache-dir; \
+            ${TRANSFORMERS_PIP}\
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/datasets-4.7.0-py3-none-any.whl; \
             mkdir -p ${ALLURE_REPORT_DIR};"
 
