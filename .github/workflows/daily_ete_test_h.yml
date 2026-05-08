@@ -63,6 +63,11 @@ on:
         description: 'Working directory for code repo (contains requirements/, autotest/, etc.)'
         type: string
         default: '/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/lmdeploy_sleep'
+      transformers_version:
+        required: false
+        description: 'Optional transformers version override (e.g. 4.57.6). Empty means use image default'
+        type: string
+        default: ''
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
@@ -75,6 +80,7 @@ env:
   REPORT_DIR: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/test-reports/${{ inputs.repo_ref || 'main' }}_${{ github.run_id }}
   ALLURE_REPORT_DIR: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/test-reports/allure_report/${{ inputs.repo_ref || 'main' }}_${{ github.run_id }}
   USE_WHL: ${{ inputs.use_whl || 'false' }}
+  TRANSFORMERS_VERSION: ${{ inputs.transformers_version || '' }}
   COV_PARAM: --cov /opt/py3/lib/python3.10/site-packages/lmdeploy
 
 jobs:
@@ -224,9 +230,11 @@ jobs:
             WHL_INSTALL="pip uninstall lmdeploy -y; pip install lmdeploy-*.whl --no-deps; "
           fi
 
-          LEGACY_PIP=""
-          if [[ "${TEST_ENV}" == *"legacy"* ]]; then
-            LEGACY_PIP="pip install transformers==4.57.6 --no-cache-dir; "
+          TRANSFORMERS_PIP=""
+          if [ -n "${TRANSFORMERS_VERSION}" ]; then
+            TRANSFORMERS_PIP="pip install transformers==${TRANSFORMERS_VERSION} --no-cache-dir; "
+          elif [[ "${TEST_ENV}" == *"legacy"* ]]; then
+            TRANSFORMERS_PIP="pip install transformers==4.57.6 --no-cache-dir; "
           fi
 
           PIP_SETUP="cd ${WORK_DIR}; \
@@ -236,7 +244,7 @@ jobs:
             ${WHL_INSTALL}\
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
             pip install -r requirements/test.txt --no-cache-dir; \
-            ${LEGACY_PIP}\
+            ${TRANSFORMERS_PIP}\
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
           # ============================================================
@@ -383,9 +391,11 @@ jobs:
             EXTRA_PIP="pip install lagent --no-cache-dir; "
           fi
 
-          LEGACY_PIP=""
-          if [[ "${TEST_ENV}" == *"legacy"* ]]; then
-            LEGACY_PIP="pip install transformers==4.57.6 --no-cache-dir; "
+          TRANSFORMERS_PIP=""
+          if [ -n "${TRANSFORMERS_VERSION}" ]; then
+            TRANSFORMERS_PIP="pip install transformers==${TRANSFORMERS_VERSION} --no-cache-dir; "
+          elif [[ "${TEST_ENV}" == *"legacy"* ]]; then
+            TRANSFORMERS_PIP="pip install transformers==4.57.6 --no-cache-dir; "
           fi
 
           PIP_SETUP="cd ${WORK_DIR}; \
@@ -394,7 +404,7 @@ jobs:
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
             pip install -r requirements/test.txt --no-cache-dir; \
             ${EXTRA_PIP}\
-            ${LEGACY_PIP}\
+            ${TRANSFORMERS_PIP}\
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
           # ============================================================
@@ -515,9 +525,11 @@ jobs:
             WHL_INSTALL="pip uninstall lmdeploy -y; pip install lmdeploy-*.whl --no-deps; "
           fi
 
-          LEGACY_PIP=""
-          if [[ "${TEST_ENV}" == *"legacy"* ]]; then
-            LEGACY_PIP="pip install transformers==4.57.6 --no-cache-dir; "
+          TRANSFORMERS_PIP=""
+          if [ -n "${TRANSFORMERS_VERSION}" ]; then
+            TRANSFORMERS_PIP="pip install transformers==${TRANSFORMERS_VERSION} --no-cache-dir; "
+          elif [[ "${TEST_ENV}" == *"legacy"* ]]; then
+            TRANSFORMERS_PIP="pip install transformers==4.57.6 --no-cache-dir; "
           fi
 
           PIP_SETUP="cd ${WORK_DIR}; \
@@ -525,7 +537,7 @@ jobs:
             ${WHL_INSTALL}\
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
             pip install -r requirements/test.txt --no-cache-dir; \
-            ${LEGACY_PIP}\
+            ${TRANSFORMERS_PIP}\
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
           # gpu_num_X marker → -n = ACTUAL_GPU / X
@@ -690,6 +702,31 @@ jobs:
             backend: pytorch
             model_type: llm
             script: run_tool_reasoning_tests.py
+          - preset: glm4.7
+            gpu: 2
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: inters2-preview-fp8-pytorch
+            gpu: 1
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: inters2-preview-fp8-pytorch-mtp
+            gpu: 1
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: inters2-preview-pytorch
+            gpu: 2
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: inters2-preview-pytorch-mtp
+            gpu: 2
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
           - preset: llama3
             gpu: 4
             backend: pytorch
@@ -697,6 +734,51 @@ jobs:
             script: run_tool_reasoning_tests.py
           - preset: deepseek-qwen
             gpu: 2
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: gpt-oss
+            gpu: 2
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: qwen3.5-35b-a3b-pytorch
+            gpu: 2
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: qwen3.5-35b-a3b-pytorch-mtp
+            gpu: 2
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: qwen3.5-35b-a3b-fp8-format-pytorch
+            gpu: 2
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: qwen3.5-35b-a3b-fp8-format-pytorch-mtp
+            gpu: 2
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: qwen3.5-35b-a3b-fp8-pytorch
+            gpu: 1
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: qwen3.5-35b-a3b-fp8-pytorch-mtp
+            gpu: 1
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: qwen3.5-122b-a10b-pytorch
+            gpu: 4
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: qwen3.5-122b-a10b-pytorch-mtp
+            gpu: 4
             backend: pytorch
             model_type: llm
             script: run_tool_reasoning_tests.py
@@ -738,7 +820,6 @@ jobs:
 
           FUNC_TESTS_DIR="/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/func_tests"
           LLM_DIST_DIR="/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/llm_distributed"
-          LMEPLOY_TOOL_DIR="/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/lmdeploy_sleep"
 
           # matrix.gpu = 逻辑卡数（TOTAL_GPU_COUNT / tp），与 func_tests/submit_interface_tests.sh 一致：
           # - rjob --gpu 默认 = 逻辑卡数（不再 ×2；2×32G 与 1×64G 总量等价）
@@ -791,7 +872,7 @@ jobs:
             -e HF_EVALUATE_OFFLINE=1 \
             -e HF_HUB_OFFLINE=1 \
             -e DISTRIBUTED_JOB=true \
-            -e LMEPLOY_TOOL_DIR=${LMEPLOY_TOOL_DIR} \
+            -e LMEPLOY_TOOL_DIR=${WORK_DIR} \
             -e TEST_ENV=${TEST_ENV} \
             -e TOTAL_GPU_COUNT=${LOGICAL_GPU} \
             -e RUN_ID=${RUN_ID} \
@@ -813,18 +894,20 @@ jobs:
             WHL_INSTALL="pip uninstall lmdeploy -y; pip install ${{ env.WORK_DIR }}/lmdeploy-*.whl --no-deps; "
           fi
 
-          LEGACY_PIP=""
-          if [[ "${TEST_ENV}" == *"legacy"* ]]; then
-            LEGACY_PIP="pip install transformers==4.57.6 --no-cache-dir; "
+          TRANSFORMERS_PIP=""
+          if [ -n "${TRANSFORMERS_VERSION}" ]; then
+            TRANSFORMERS_PIP="pip install transformers==${TRANSFORMERS_VERSION} --no-cache-dir; "
+          elif [[ "${TEST_ENV}" == *"legacy"* ]]; then
+            TRANSFORMERS_PIP="pip install transformers==4.57.6 --no-cache-dir; "
           fi
 
-          PIP_SETUP="cd ${LMEPLOY_TOOL_DIR}; \
+          PIP_SETUP="cd ${WORK_DIR}; \
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/fast_hadamard_transform-1.1.0+cu12torch2.10cxx11abiTRUE-cp312-cp312-linux_x86_64.whl; \
             ${WHL_INSTALL}\
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
             pip install -r requirements/test.txt --no-cache-dir 2>/dev/null || true; \
             pip install -e ${LLM_DIST_DIR} --no-cache-dir; \
-            ${LEGACY_PIP}\
+            ${TRANSFORMERS_PIP}\
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
           # ============================================================
