@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 .vscode/
 .idea/
+.cursor/
 # C extensions
 *.so
 
@@ -46,6 +47,7 @@ htmlcov/
 .cache
 *build*/
 !builder/
+!.claude/skills/docker-build/
 lmdeploy/lib/
 lmdeploy/bin/
 dist/
