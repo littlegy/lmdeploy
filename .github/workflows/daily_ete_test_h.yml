@@ -316,8 +316,21 @@ jobs:
           BACKEND: ${{ matrix.backend }}
           MODEL: ${{ matrix.model }}
           FUNC: ${{ matrix.function }}
+          BACKENDS_JSON: ${{ inputs.backend || '["turbomind", "pytorch"]' }}
         run: |
           set -e
+
+          # Skip matrix combinations not in backend filter (include may add extra backends)
+          BACKENDS=$(echo "${BACKENDS_JSON}" | tr -d "[]'" | tr ',' ' ')
+          SKIP=true
+          for b in $BACKENDS; do
+            b=$(echo "$b" | tr -d ' ')
+            [ "$b" = "$BACKEND" ] && SKIP=false && break
+          done
+          if $SKIP; then
+            echo "Backend ${BACKEND} not in ${BACKENDS_JSON}, skipping..."
+            exit 0
+          fi
 
           # ============================================================
           # Configuration
@@ -593,11 +606,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # RESTFUL_MODEL_LIST_LATEST only (constant.py); run_interface_tests.py
           # ---- LLM + pytorch ----
-          - preset: qwen3-8b-base-pytorch
-            gpu: 2
-            backend: pytorch
-            model_type: llm
           - preset: qwen3-30b-a3b-pytorch
             gpu: 2
             backend: pytorch
@@ -606,7 +616,48 @@ jobs:
             gpu: 2
             backend: pytorch
             model_type: llm
-          # ---- Qwen 3.5 LLM + pytorch (run_interface_tests.py; GPU 同 submit_tool_reasoning_tests.sh / submit_interface_tests.sh) ----
+          - preset: qwen3-0.6b-pytorch
+            gpu: 1
+            backend: pytorch
+            model_type: llm
+          - preset: qwen3.5-27b-pytorch
+            gpu: 2
+            backend: pytorch
+            model_type: llm
+          - preset: internlm3-8b-pytorch
+            gpu: 1
+            backend: pytorch
+            model_type: llm
+          - preset: llama3.2-3b-pytorch
+            gpu: 1
+            backend: pytorch
+            model_type: llm
+          - preset: intern-s1-pytorch
+            gpu: 4
+            backend: pytorch
+            model_type: llm
+          # ---- Intern-S2 preview (submit_interface_tests.sh) ----
+          - preset: inters2-preview-fp8-pytorch
+            gpu: 1
+            backend: pytorch
+            model_type: llm
+          - preset: inters2-preview-fp8-pytorch-mtp
+            gpu: 1
+            backend: pytorch
+            model_type: llm
+          - preset: inters2-preview-pytorch
+            gpu: 2
+            backend: pytorch
+            model_type: llm
+          - preset: inters2-preview-pytorch-mtp
+            gpu: 2
+            backend: pytorch
+            model_type: llm
+          - preset: inters2-preview-pytorch-longtext
+            gpu: 2
+            backend: pytorch
+            model_type: llm
+          # ---- Qwen 3.5 LLM + pytorch ----
           - preset: qwen3.5-35b-a3b-pytorch
             gpu: 2
             backend: pytorch
@@ -639,17 +690,65 @@ jobs:
             gpu: 4
             backend: pytorch
             model_type: llm
-          # ---- LLM + turbomind ----
-          - preset: qwen3-8b-base-turbomind
+          - preset: qwen3.5-35b-a3b-turbomind
             gpu: 2
             backend: turbomind
             model_type: llm
+          - preset: qwen3.5-35b-a3b-turbomind-mtp
+            gpu: 2
+            backend: turbomind
+            model_type: llm
+          - preset: qwen3.5-35b-a3b-fp8-format-turbomind
+            gpu: 2
+            backend: turbomind
+            model_type: llm
+          - preset: qwen3.5-35b-a3b-fp8-format-turbomind-mtp
+            gpu: 2
+            backend: turbomind
+            model_type: llm
+          - preset: qwen3.5-35b-a3b-fp8-turbomind
+            gpu: 1
+            backend: turbomind
+            model_type: llm
+          - preset: qwen3.5-35b-a3b-fp8-turbomind-mtp
+            gpu: 1
+            backend: turbomind
+            model_type: llm
+          - preset: qwen3.5-122b-a10b-turbomind
+            gpu: 4
+            backend: turbomind
+            model_type: llm
+          - preset: qwen3.5-122b-a10b-turbomind-mtp
+            gpu: 4
+            backend: turbomind
+            model_type: llm
+          # ---- LLM + turbomind ----
           - preset: qwen3-30b-a3b-turbomind
             gpu: 2
             backend: turbomind
             model_type: llm
           - preset: qwen3-32b-turbomind
             gpu: 2
+            backend: turbomind
+            model_type: llm
+          - preset: qwen3-0.6b-turbomind
+            gpu: 1
+            backend: turbomind
+            model_type: llm
+          - preset: qwen3.5-27b-turbomind
+            gpu: 2
+            backend: turbomind
+            model_type: llm
+          - preset: internlm3-8b-turbomind
+            gpu: 1
+            backend: turbomind
+            model_type: llm
+          - preset: llama3.2-3b-turbomind
+            gpu: 1
+            backend: turbomind
+            model_type: llm
+          - preset: intern-s1-turbomind
+            gpu: 4
             backend: turbomind
             model_type: llm
           # ---- MLLM + pytorch ----
@@ -686,59 +785,24 @@ jobs:
             gpu: 2
             backend: turbomind
             model_type: mllm
-          # ---- Tool / Reasoning (run_tool_reasoning_tests.py) ----
-          - preset: qwen3
-            gpu: 1
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: internlm
-            gpu: 1
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
+          # ---- Tool / Reasoning (TOOL_REASONING_MODEL_LIST_LATEST; run_tool_reasoning_tests.py) ----
           - preset: qwen2d5
             gpu: 1
             backend: pytorch
             model_type: llm
             script: run_tool_reasoning_tests.py
-          - preset: glm4.7
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: inters2-preview-fp8-pytorch
+          - preset: qwen3
             gpu: 1
             backend: pytorch
             model_type: llm
             script: run_tool_reasoning_tests.py
-          - preset: inters2-preview-fp8-pytorch-mtp
+          - preset: qwen3.5-35b-a3b-fp8-pytorch
             gpu: 1
             backend: pytorch
             model_type: llm
             script: run_tool_reasoning_tests.py
-          - preset: inters2-preview-pytorch
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: inters2-preview-pytorch-mtp
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: llama3
-            gpu: 4
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: deepseek-qwen
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: gpt-oss
-            gpu: 2
+          - preset: qwen3.5-35b-a3b-fp8-pytorch-mtp
+            gpu: 1
             backend: pytorch
             model_type: llm
             script: run_tool_reasoning_tests.py
@@ -762,13 +826,34 @@ jobs:
             backend: pytorch
             model_type: llm
             script: run_tool_reasoning_tests.py
-          - preset: qwen3.5-35b-a3b-fp8-pytorch
+          # ---- Intern-S2 preview (submit_tool_reasoning_tests.sh) ----
+          - preset: inters2-preview-fp8-pytorch
             gpu: 1
             backend: pytorch
             model_type: llm
             script: run_tool_reasoning_tests.py
-          - preset: qwen3.5-35b-a3b-fp8-pytorch-mtp
+          - preset: inters2-preview-fp8-pytorch-mtp
             gpu: 1
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: inters2-preview-pytorch
+            gpu: 2
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: inters2-preview-pytorch-mtp
+            gpu: 2
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: deepseek-qwen
+            gpu: 2
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: gpt-oss
+            gpu: 2
             backend: pytorch
             model_type: llm
             script: run_tool_reasoning_tests.py
@@ -782,11 +867,34 @@ jobs:
             backend: pytorch
             model_type: llm
             script: run_tool_reasoning_tests.py
+          - preset: llama3
+            gpu: 4
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: deepseek-v3
+            gpu: 8
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: intern-s1-pro-proxy
+            gpu: 8
+            nodes: 2
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
+          - preset: intern-s1-pro-ray
+            gpu: 8
+            nodes: 2
+            backend: pytorch
+            model_type: llm
+            script: run_tool_reasoning_tests.py
     steps:
       - name: Submit restful interface test job via rjob
         env:
           PRESET: ${{ matrix.preset }}
           GPU: ${{ matrix.gpu }}
+          NUM_NODES: ${{ matrix.nodes || 1 }}
           RUNNER_SCRIPT: ${{ matrix.script || 'run_interface_tests.py' }}
         run: |
           set -e
@@ -818,47 +926,79 @@ jobs:
           COV_PARAM="${{ env.COV_PARAM }}"
           USE_WHL="${{ env.USE_WHL }}"
 
+          WORK_DIR="${{ env.WORK_DIR }}"
           FUNC_TESTS_DIR="/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/func_tests"
           LLM_DIST_DIR="/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/llm_distributed"
 
-          # matrix.gpu = 逻辑卡数（TOTAL_GPU_COUNT / tp），与 func_tests/submit_interface_tests.sh 一致：
-          # - rjob --gpu 默认 = 逻辑卡数（不再 ×2；2×32G 与 1×64G 总量等价）
-          # - 会跑 test_restful_sleep_wakeup level-2 /update_weights 的 preset 每节点多申 1 张 staging 卡，并设置
-          #   LMDEPLOY_UPDATE_WEIGHTS_CUDA_DEVICE=tp（0-based 首张 staging 卡下标）
-          # - 每节点 ≥8 卡时注入 LMDEPLOY_SKIP_INTERFACE_SLEEP_WAKEUP=1（与 submit_interface_tests.sh 一致）
+          IS_TOOL_RUNNER=false
+          [[ "${RUNNER_SCRIPT}" == *tool_reasoning* ]] && IS_TOOL_RUNNER=true
+
+          # matrix.gpu = 每节点逻辑卡数；matrix.nodes = 节点数（分布式 preset，如 intern-s1-pro-proxy）
+          # TOTAL_GPU_COUNT = gpu × nodes；与 submit_interface_tests.sh / submit_tool_reasoning_tests.sh 一致
           LOGICAL_GPU=${GPU}
-          NUM_NODES=1
+          NUM_NODES=${NUM_NODES}
+          TOTAL_GPU_COUNT=$(( LOGICAL_GPU * NUM_NODES ))
           RJOB_GPU=${LOGICAL_GPU}
+          PROXY_EXTRA_ENV=""
+          PROXY_REMOTE_EXPORTS=""
+          PROXY_RUNNER_ARGS=""
+          HOST_NETWORK="--host-network=False"
+          RJOB_PARALLEL=""
+          DIST_ENV_SETUP=""
+          if [[ "${PRESET}" == *-proxy ]]; then
+            PROXY_EXTRA_ENV="-e LMDEPLOY_PORT=8000 -e PROXY_PORT=8000"
+            PROXY_REMOTE_EXPORTS="export LMDEPLOY_PORT=8000; export PROXY_PORT=8000;"
+            if ! $IS_TOOL_RUNNER; then
+              PROXY_RUNNER_ARGS="--test-type chat_completions"
+            fi
+          fi
+          if [[ "${NUM_NODES}" -gt 1 ]]; then
+            HOST_NETWORK="--host-network=True"
+            RJOB_PARALLEL="-P ${NUM_NODES}"
+            DIST_ENV_SETUP='export LMDEPLOY_DP_MASTER_ADDR="$MASTER_ADDR"; export LMDEPLOY_DP_MASTER_PORT=29555; export DEEPEP_MAX_TOKENS_PER_RANK=256; '
+          fi
           SLEEP_WAKEUP_EXTRA_ENV=""
-          if [[ "${NUM_NODES}" -ge 8 ]] || [[ "${LOGICAL_GPU}" -ge 8 ]]; then
-            SLEEP_WAKEUP_EXTRA_ENV="${SLEEP_WAKEUP_EXTRA_ENV} -e LMDEPLOY_SKIP_INTERFACE_SLEEP_WAKEUP=1"
+          if ! $IS_TOOL_RUNNER; then
+            if [[ "${NUM_NODES}" -ge 8 ]] || [[ "${LOGICAL_GPU}" -ge 8 ]]; then
+              SLEEP_WAKEUP_EXTRA_ENV="${SLEEP_WAKEUP_EXTRA_ENV} -e LMDEPLOY_SKIP_INTERFACE_SLEEP_WAKEUP=1"
+            fi
+            extra_gpu=0
+            if [[ "${NUM_NODES}" -ge 1 ]] && [[ "${NUM_NODES}" -le 4 ]]; then
+              case "${PRESET}" in
+                qwen3.5-35b-a3b-pytorch|qwen3.5-35b-a3b-pytorch-mtp|\
+                qwen3.5-35b-a3b-fp8-format-pytorch|qwen3.5-35b-a3b-fp8-format-pytorch-mtp|\
+                qwen3.5-35b-a3b-turbomind|qwen3.5-35b-a3b-turbomind-mtp|\
+                qwen3.5-35b-a3b-fp8-format-turbomind|qwen3.5-35b-a3b-fp8-format-turbomind-mtp)
+                  [[ "${LOGICAL_GPU}" -eq 2 ]] && extra_gpu=1
+                  ;;
+                qwen3.5-122b-a10b-pytorch|qwen3.5-122b-a10b-pytorch-mtp|\
+                qwen3.5-122b-a10b-turbomind|qwen3.5-122b-a10b-turbomind-mtp)
+                  [[ "${LOGICAL_GPU}" -eq 4 ]] && extra_gpu=1
+                  ;;
+                qwen3-30b-a3b-pytorch|qwen3-30b-a3b-turbomind)
+                  [[ "${LOGICAL_GPU}" -eq 2 ]] && extra_gpu=1
+                  ;;
+                inters2-preview-pytorch|inters2-preview-pytorch-mtp|inters2-preview-pytorch-longtext)
+                  [[ "${LOGICAL_GPU}" -eq 2 ]] && extra_gpu=1
+                  ;;
+              esac
+            fi
+            if [[ "${extra_gpu}" -eq 1 ]]; then
+              RJOB_GPU=$(( LOGICAL_GPU + 1 ))
+              SLEEP_WAKEUP_EXTRA_ENV="${SLEEP_WAKEUP_EXTRA_ENV} -e LMDEPLOY_UPDATE_WEIGHTS_CUDA_DEVICE=${LOGICAL_GPU}"
+            fi
           fi
-          extra_gpu=0
-          if [[ "${NUM_NODES}" -ge 1 ]] && [[ "${NUM_NODES}" -le 4 ]]; then
-            case "${PRESET}" in
-              qwen3.5-35b-a3b-pytorch|qwen3.5-35b-a3b-pytorch-mtp|\
-              qwen3.5-35b-a3b-fp8-format-pytorch|qwen3.5-35b-a3b-fp8-format-pytorch-mtp|\
-              qwen3.5-35b-a3b-turbomind|qwen3.5-35b-a3b-turbomind-mtp|\
-              qwen3.5-35b-a3b-fp8-format-turbomind|qwen3.5-35b-a3b-fp8-format-turbomind-mtp)
-                [[ "${LOGICAL_GPU}" -eq 2 ]] && extra_gpu=1
-                ;;
-              qwen3.5-122b-a10b-pytorch|qwen3.5-122b-a10b-pytorch-mtp|\
-              qwen3.5-122b-a10b-turbomind|qwen3.5-122b-a10b-turbomind-mtp)
-                [[ "${LOGICAL_GPU}" -eq 4 ]] && extra_gpu=1
-                ;;
-              qwen3-30b-a3b-pytorch|qwen3-30b-a3b-turbomind)
-                [[ "${LOGICAL_GPU}" -eq 2 ]] && extra_gpu=1
-                ;;
-            esac
+          if $IS_TOOL_RUNNER; then
+            MEMORY_PER_GPU_MB=32000
+          else
+            MEMORY_PER_GPU_MB=64000
           fi
-          if [[ "${extra_gpu}" -eq 1 ]]; then
-            RJOB_GPU=$(( LOGICAL_GPU + 1 ))
-            SLEEP_WAKEUP_EXTRA_ENV="${SLEEP_WAKEUP_EXTRA_ENV} -e LMDEPLOY_UPDATE_WEIGHTS_CUDA_DEVICE=${LOGICAL_GPU}"
-          fi
-          # 与 submit_interface_tests.sh MEMORY_PER_GPU_MB=64000 一致；含 staging 卡时按 RJOB_GPU 计费
-          MEMORY_PER_GPU_MB=64000
           MEMORY_MB=$(( RJOB_GPU * MEMORY_PER_GPU_MB ))
-          CPU=$(( RJOB_GPU * 10 ))
+          if [[ "${NUM_NODES}" -gt 1 ]]; then
+            CPU=$(( 20 * NUM_NODES ))
+          else
+            CPU=$(( RJOB_GPU * 10 ))
+          fi
 
           # ============================================================
           # Common env vars & mounts
@@ -874,7 +1014,7 @@ jobs:
             -e DISTRIBUTED_JOB=true \
             -e LMEPLOY_TOOL_DIR=${WORK_DIR} \
             -e TEST_ENV=${TEST_ENV} \
-            -e TOTAL_GPU_COUNT=${LOGICAL_GPU} \
+            -e TOTAL_GPU_COUNT=${TOTAL_GPU_COUNT} \
             -e RUN_ID=${RUN_ID} \
             -e PIP_INDEX_URL=\"http://mirrors.i.h.pjlab.org.cn/pypi/simple/\" \
             -e PIP_EXTRA_INDEX_URL=\"http://pypi.i.h.pjlab.org.cn/brain/dev/+simple\" \
@@ -897,6 +1037,8 @@ jobs:
           TRANSFORMERS_PIP=""
           if [ -n "${TRANSFORMERS_VERSION}" ]; then
             TRANSFORMERS_PIP="pip install transformers==${TRANSFORMERS_VERSION} --no-cache-dir; "
+          elif [[ "${PRESET}" == intern-s1-pro-* ]]; then
+            TRANSFORMERS_PIP="pip install transformers==5.2.0 --no-cache-dir; "
           elif [[ "${TEST_ENV}" == *"legacy"* ]]; then
             TRANSFORMERS_PIP="pip install transformers==4.57.6 --no-cache-dir; "
           fi
@@ -916,6 +1058,7 @@ jobs:
           # ============================================================
           RUN_CMD="python ${FUNC_TESTS_DIR}/${RUNNER_SCRIPT} \
             --preset ${PRESET} \
+            ${PROXY_RUNNER_ARGS} \
             --pytest-args \"-v -s --tb=short --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM}\""
 
           # ============================================================
@@ -935,9 +1078,11 @@ jobs:
             --image-pull-policy=Always \
             ${COMMON_ENV_VARS} \
             ${SLEEP_WAKEUP_EXTRA_ENV} \
+            ${PROXY_EXTRA_ENV} \
             ${COMMON_MOUNTS} \
-            --host-network=False \
-            -- bash -exc '${PIP_SETUP} ${RUN_CMD}'"
+            ${HOST_NETWORK} \
+            ${RJOB_PARALLEL} \
+            -- bash -exc '${PROXY_REMOTE_EXPORTS}${DIST_ENV_SETUP}${PIP_SETUP}${RUN_CMD}'"
 
           echo "=== Executing ===" && echo "$RJOB_CMD" | sed 's/  */ \\\n  /g' && echo "================="
           eval "$RJOB_CMD"
