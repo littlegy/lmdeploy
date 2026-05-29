@@ -233,6 +233,8 @@ jobs:
             pip install -r requirements/test.txt --no-cache-dir; \
             ${TRANSFORMERS_PIP}\
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/datasets-4.7.0-py3-none-any.whl; \
+            pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.29.2; \
+            python -c 'import importlib.metadata as md; assert md.version("nvidia-nccl-cu12")=="2.29.2", md.version("nvidia-nccl-cu12")'; \
             mkdir -p ${ALLURE_REPORT_DIR};"
 
           # ============================================================
