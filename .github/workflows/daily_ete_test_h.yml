@@ -245,6 +245,8 @@ jobs:
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
             pip install -r requirements/test.txt --no-cache-dir; \
             ${TRANSFORMERS_PIP}\
+            pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.29.2; \
+            python -c 'import importlib.metadata as md; assert md.version("nvidia-nccl-cu12")=="2.29.2", md.version("nvidia-nccl-cu12")'; \
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
           # ============================================================
@@ -418,6 +420,8 @@ jobs:
             pip install -r requirements/test.txt --no-cache-dir; \
             ${EXTRA_PIP}\
             ${TRANSFORMERS_PIP}\
+            pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.29.2; \
+            python -c 'import importlib.metadata as md; assert md.version("nvidia-nccl-cu12")=="2.29.2", md.version("nvidia-nccl-cu12")'; \
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
           # ============================================================
@@ -551,6 +555,8 @@ jobs:
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
             pip install -r requirements/test.txt --no-cache-dir; \
             ${TRANSFORMERS_PIP}\
+            pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.29.2; \
+            python -c 'import importlib.metadata as md; assert md.version("nvidia-nccl-cu12")=="2.29.2", md.version("nvidia-nccl-cu12")'; \
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
           # gpu_num_X marker → -n = ACTUAL_GPU / X
@@ -966,16 +972,13 @@ jobs:
             if [[ "${NUM_NODES}" -ge 1 ]] && [[ "${NUM_NODES}" -le 4 ]]; then
               case "${PRESET}" in
                 qwen3.5-35b-a3b-pytorch|qwen3.5-35b-a3b-pytorch-mtp|\
-                qwen3.5-35b-a3b-fp8-format-pytorch|qwen3.5-35b-a3b-fp8-format-pytorch-mtp|\
-                qwen3.5-35b-a3b-turbomind|qwen3.5-35b-a3b-turbomind-mtp|\
-                qwen3.5-35b-a3b-fp8-format-turbomind|qwen3.5-35b-a3b-fp8-format-turbomind-mtp)
+                qwen3.5-35b-a3b-fp8-format-pytorch|qwen3.5-35b-a3b-fp8-format-pytorch-mtp)
                   [[ "${LOGICAL_GPU}" -eq 2 ]] && extra_gpu=1
                   ;;
-                qwen3.5-122b-a10b-pytorch|qwen3.5-122b-a10b-pytorch-mtp|\
-                qwen3.5-122b-a10b-turbomind|qwen3.5-122b-a10b-turbomind-mtp)
-                  [[ "${LOGICAL_GPU}" -eq 4 ]] && extra_gpu=1
+                qwen3.5-122b-a10b-pytorch|qwen3.5-122b-a10b-pytorch-mtp)
+                  [[ "${LOGICAL_GPU}" -eq 4 ]] && extra_gpu=2
                   ;;
-                qwen3-30b-a3b-pytorch|qwen3-30b-a3b-turbomind)
+                qwen3-30b-a3b-pytorch)
                   [[ "${LOGICAL_GPU}" -eq 2 ]] && extra_gpu=1
                   ;;
                 inters2-preview-pytorch|inters2-preview-pytorch-mtp|inters2-preview-pytorch-longtext)
@@ -983,8 +986,8 @@ jobs:
                   ;;
               esac
             fi
-            if [[ "${extra_gpu}" -eq 1 ]]; then
-              RJOB_GPU=$(( LOGICAL_GPU + 1 ))
+            if [[ "${extra_gpu}" -ge 1 ]]; then
+              RJOB_GPU=$(( LOGICAL_GPU + extra_gpu ))
               SLEEP_WAKEUP_EXTRA_ENV="${SLEEP_WAKEUP_EXTRA_ENV} -e LMDEPLOY_UPDATE_WEIGHTS_CUDA_DEVICE=${LOGICAL_GPU}"
             fi
           fi
@@ -1050,6 +1053,8 @@ jobs:
             pip install -r requirements/test.txt --no-cache-dir 2>/dev/null || true; \
             pip install -e ${LLM_DIST_DIR} --no-cache-dir; \
             ${TRANSFORMERS_PIP}\
+            pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.29.2; \
+            python -c 'import importlib.metadata as md; assert md.version("nvidia-nccl-cu12")=="2.29.2", md.version("nvidia-nccl-cu12")'; \
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
           # ============================================================
