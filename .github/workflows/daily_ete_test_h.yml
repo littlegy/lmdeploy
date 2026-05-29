@@ -246,7 +246,7 @@ jobs:
             pip install -r requirements/test.txt --no-cache-dir; \
             ${TRANSFORMERS_PIP}\
             pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.29.2; \
-            python -c 'import importlib.metadata as md; assert md.version("nvidia-nccl-cu12")=="2.29.2", md.version("nvidia-nccl-cu12")'; \
+            python -c \"import importlib.metadata as md; assert md.version(\\\"nvidia-nccl-cu12\\\")==\\\"2.29.2\\\", md.version(\\\"nvidia-nccl-cu12\\\")\"; \
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
           # ============================================================
@@ -421,7 +421,7 @@ jobs:
             ${EXTRA_PIP}\
             ${TRANSFORMERS_PIP}\
             pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.29.2; \
-            python -c 'import importlib.metadata as md; assert md.version("nvidia-nccl-cu12")=="2.29.2", md.version("nvidia-nccl-cu12")'; \
+            python -c \"import importlib.metadata as md; assert md.version(\\\"nvidia-nccl-cu12\\\")==\\\"2.29.2\\\", md.version(\\\"nvidia-nccl-cu12\\\")\"; \
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
           # ============================================================
@@ -556,7 +556,7 @@ jobs:
             pip install -r requirements/test.txt --no-cache-dir; \
             ${TRANSFORMERS_PIP}\
             pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.29.2; \
-            python -c 'import importlib.metadata as md; assert md.version("nvidia-nccl-cu12")=="2.29.2", md.version("nvidia-nccl-cu12")'; \
+            python -c \"import importlib.metadata as md; assert md.version(\\\"nvidia-nccl-cu12\\\")==\\\"2.29.2\\\", md.version(\\\"nvidia-nccl-cu12\\\")\"; \
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
           # gpu_num_X marker → -n = ACTUAL_GPU / X
@@ -1054,7 +1054,7 @@ jobs:
             pip install -e ${LLM_DIST_DIR} --no-cache-dir; \
             ${TRANSFORMERS_PIP}\
             pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.29.2; \
-            python -c 'import importlib.metadata as md; assert md.version("nvidia-nccl-cu12")=="2.29.2", md.version("nvidia-nccl-cu12")'; \
+            python -c \"import importlib.metadata as md; assert md.version(\\\"nvidia-nccl-cu12\\\")==\\\"2.29.2\\\", md.version(\\\"nvidia-nccl-cu12\\\")\"; \
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
           # ============================================================
