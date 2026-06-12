@@ -1040,8 +1040,6 @@ jobs:
           TRANSFORMERS_PIP=""
           if [ -n "${TRANSFORMERS_VERSION}" ]; then
             TRANSFORMERS_PIP="pip install transformers==${TRANSFORMERS_VERSION} --no-cache-dir; "
-          elif [[ "${PRESET}" == intern-s1-pro-* ]]; then
-            TRANSFORMERS_PIP="pip install transformers==5.2.0 --no-cache-dir; "
           elif [[ "${TEST_ENV}" == *"legacy"* ]]; then
             TRANSFORMERS_PIP="pip install transformers==4.57.6 --no-cache-dir; "
           fi
