@@ -140,7 +140,7 @@ jobs:
   download_pkgs:
     needs: linux-build
     if: ${{!cancelled() && inputs.use_whl && !inputs.offline_mode}}
-    runs-on: [self-hosted, ${{ inputs.runner_label || 'h-191' }}]
+    runs-on: ${{ fromJSON(format('["self-hosted", "{0}"]', inputs.runner_label || 'h-191')) }}
     timeout-minutes: 50
     steps:
       - name: Download Artifacts
@@ -153,7 +153,7 @@ jobs:
   prepare_env:
     if: ${{!cancelled()}}
     needs: download_pkgs
-    runs-on: [self-hosted, ${{ inputs.runner_label || 'h-191' }}]
+    runs-on: ${{ fromJSON(format('["self-hosted", "{0}"]', inputs.runner_label || 'h-191')) }}
     timeout-minutes: 10
     steps:
       - name: Mark as start
@@ -166,7 +166,7 @@ jobs:
   test_quantization:
     needs: prepare_env
     if: ${{!cancelled() && (github.event_name == 'schedule' || contains(fromJSON(github.event.inputs.regression_func), 'quant'))}}
-    runs-on: [self-hosted, ${{ inputs.runner_label || 'h-191' }}]
+    runs-on: ${{ fromJSON(format('["self-hosted", "{0}"]', inputs.runner_label || 'h-191')) }}
     timeout-minutes: 30
     steps:
       - name: Submit quantization test job via rjob
@@ -300,7 +300,7 @@ jobs:
 
   test_tools:
     if: ${{!cancelled() && (github.event_name == 'schedule' || contains(fromJSON(github.event.inputs.regression_func), 'tools'))}}
-    runs-on: [self-hosted, ${{ inputs.runner_label || 'h-191' }}]
+    runs-on: ${{ fromJSON(format('["self-hosted", "{0}"]', inputs.runner_label || 'h-191')) }}
     needs: test_quantization
     timeout-minutes: 30
     strategy:
@@ -522,7 +522,7 @@ jobs:
 
   test_pipeline:
     if: ${{!cancelled() && (github.event_name == 'schedule' || contains(fromJSON(github.event.inputs.regression_func), 'pipeline'))}}
-    runs-on: [self-hosted, ${{ inputs.runner_label || 'h-191' }}]
+    runs-on: ${{ fromJSON(format('["self-hosted", "{0}"]', inputs.runner_label || 'h-191')) }}
     needs: test_quantization
     timeout-minutes: 30
     steps:
@@ -641,7 +641,7 @@ jobs:
 
   test_restful:
     if: ${{!cancelled() && (github.event_name == 'schedule' || contains(fromJSON(github.event.inputs.regression_func), 'restful'))}}
-    runs-on: [self-hosted, ${{ inputs.runner_label || 'h-191' }}]
+    runs-on: ${{ fromJSON(format('["self-hosted", "{0}"]', inputs.runner_label || 'h-191')) }}
     needs: test_quantization
     timeout-minutes: 30
     strategy:
