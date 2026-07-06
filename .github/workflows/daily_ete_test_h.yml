@@ -212,7 +212,7 @@ jobs:
           # ============================================================
           # Common env vars & mounts (matching submit_oc.sh)
           # ============================================================
-          COMMON_ENV_VARS="-e HF_HUB_CACHE=/mnt/shared-storage-user/large-model-center-share-weights/hf_hub \
+          COMMON_ENV_VARS="-e HF_HUB_CACHE=/mnt/shared-storage-gpfs2/gpfs2-shared-public/huggingface/hub \
             -e HF_DATASETS_CACHE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/hf_cache \
             -e TIKTOKEN_CACHE_DIR=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/share_tiktoken \
             -e TIKTOKEN_ENCODINGS_BASE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/tiktoken_encodings \
@@ -281,12 +281,19 @@ jobs:
           GITHUB_RUN_ID="${{ github.run_id }}"
           make_rjob_name() {
             local tag="$1"
-            local name="ete-${tag}-${GITHUB_RUN_ID}-$(date +%H%M%S)"
+            local suffix="${GITHUB_RUN_ID: -6}$(printf '%04d' $((RANDOM % 10000)))"
+            local name="ete-${tag}-${suffix}"
             name=$(echo "${name}" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9-]/-/g' -e 's/--*/-/g' -e 's/^-*//' -e 's/-*$//')
-            local max_len=60  # task id = {name}-t0, DNS label max 63
+            local max_len=49  # kubebrain webhook: job name must be < 50 chars
             if [ ${#name} -gt ${max_len} ]; then
-              name="${name:0:${max_len}}"
-              name=$(echo "${name}" | sed -e 's/-*$//')
+              local prefix_max=$((max_len - ${#suffix} - 1))
+              local prefix="ete-${tag}"
+              prefix=$(echo "${prefix}" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9-]/-/g' -e 's/--*/-/g' -e 's/^-*//' -e 's/-*$//')
+              if [ ${#prefix} -gt ${prefix_max} ]; then
+                prefix="${prefix:0:${prefix_max}}"
+                prefix=$(echo "${prefix}" | sed -e 's/-*$//')
+              fi
+              name="${prefix}-${suffix}"
             fi
             echo "${name}"
           }
@@ -401,7 +408,7 @@ jobs:
           # ============================================================
           # Common env vars & mounts
           # ============================================================
-          COMMON_ENV_VARS="-e HF_HUB_CACHE=/mnt/shared-storage-user/large-model-center-share-weights/hf_hub \
+          COMMON_ENV_VARS="-e HF_HUB_CACHE=/mnt/shared-storage-gpfs2/gpfs2-shared-public/huggingface/hub \
             -e HF_DATASETS_CACHE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/hf_cache \
             -e TIKTOKEN_CACHE_DIR=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/share_tiktoken \
             -e TIKTOKEN_ENCODINGS_BASE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/tiktoken_encodings \
@@ -514,16 +521,26 @@ jobs:
           GITHUB_RUN_ID="${{ github.run_id }}"
           make_rjob_name() {
             local tag="$1"
-            local name="ete-${tag}-${GITHUB_RUN_ID}-$(date +%H%M%S)"
+            local suffix="${GITHUB_RUN_ID: -6}$(printf '%04d' $((RANDOM % 10000)))"
+            local name="ete-${tag}-${suffix}"
             name=$(echo "${name}" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9-]/-/g' -e 's/--*/-/g' -e 's/^-*//' -e 's/-*$//')
-            local max_len=60  # task id = {name}-t0, DNS label max 63
+            local max_len=49  # kubebrain webhook: job name must be < 50 chars
             if [ ${#name} -gt ${max_len} ]; then
-              name="${name:0:${max_len}}"
-              name=$(echo "${name}" | sed -e 's/-*$//')
+              local prefix_max=$((max_len - ${#suffix} - 1))
+              local prefix="ete-${tag}"
+              prefix=$(echo "${prefix}" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9-]/-/g' -e 's/--*/-/g' -e 's/^-*//' -e 's/-*$//')
+              if [ ${#prefix} -gt ${prefix_max} ]; then
+                prefix="${prefix:0:${prefix_max}}"
+                prefix=$(echo "${prefix}" | sed -e 's/-*$//')
+              fi
+              name="${prefix}-${suffix}"
             fi
             echo "${name}"
           }
-          JOB_NAME=$(make_rjob_name "tools-${BACKEND}-${MODEL}-${FUNC}")
+          case "${BACKEND}" in turbomind) B_TAG=tm;; pytorch) B_TAG=pt;; *) B_TAG="${BACKEND}";; esac
+          case "${MODEL}" in llm) M_TAG=l;; mllm) M_TAG=m;; *) M_TAG="${MODEL}";; esac
+          case "${FUNC}" in pipeline) F_TAG=pl;; chat) F_TAG=ch;; other) F_TAG=ot;; *) F_TAG="${FUNC}";; esac
+          JOB_NAME=$(make_rjob_name "tls-${B_TAG}-${M_TAG}-${F_TAG}")
 
           RJOB_CMD="rjob submit \
             --name=${JOB_NAME} \
@@ -576,7 +593,7 @@ jobs:
           # ============================================================
           # Common env vars & mounts
           # ============================================================
-          COMMON_ENV_VARS="-e HF_HUB_CACHE=/mnt/shared-storage-user/large-model-center-share-weights/hf_hub \
+          COMMON_ENV_VARS="-e HF_HUB_CACHE=/mnt/shared-storage-gpfs2/gpfs2-shared-public/huggingface/hub \
             -e HF_DATASETS_CACHE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/hf_cache \
             -e TIKTOKEN_CACHE_DIR=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/share_tiktoken \
             -e TIKTOKEN_ENCODINGS_BASE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/tiktoken_encodings \
@@ -646,12 +663,19 @@ jobs:
           GITHUB_RUN_ID="${{ github.run_id }}"
           make_rjob_name() {
             local tag="$1"
-            local name="ete-${tag}-${GITHUB_RUN_ID}-$(date +%H%M%S)"
+            local suffix="${GITHUB_RUN_ID: -6}$(printf '%04d' $((RANDOM % 10000)))"
+            local name="ete-${tag}-${suffix}"
             name=$(echo "${name}" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9-]/-/g' -e 's/--*/-/g' -e 's/^-*//' -e 's/-*$//')
-            local max_len=60  # task id = {name}-t0, DNS label max 63
+            local max_len=49  # kubebrain webhook: job name must be < 50 chars
             if [ ${#name} -gt ${max_len} ]; then
-              name="${name:0:${max_len}}"
-              name=$(echo "${name}" | sed -e 's/-*$//')
+              local prefix_max=$((max_len - ${#suffix} - 1))
+              local prefix="ete-${tag}"
+              prefix=$(echo "${prefix}" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9-]/-/g' -e 's/--*/-/g' -e 's/^-*//' -e 's/-*$//')
+              if [ ${#prefix} -gt ${prefix_max} ]; then
+                prefix="${prefix:0:${prefix_max}}"
+                prefix=$(echo "${prefix}" | sed -e 's/-*$//')
+              fi
+              name="${prefix}-${suffix}"
             fi
             echo "${name}"
           }
@@ -872,7 +896,7 @@ jobs:
             model_type: llm
             script: run_tool_reasoning_tests.py
           - preset: qwen3
-            gpu: 1
+            gpu: 2
             backend: pytorch
             model_type: llm
             script: run_tool_reasoning_tests.py
@@ -1080,7 +1104,7 @@ jobs:
           # ============================================================
           # Common env vars & mounts
           # ============================================================
-          COMMON_ENV_VARS="-e HF_HUB_CACHE=/mnt/shared-storage-user/large-model-center-share-weights/hf_hub \
+          COMMON_ENV_VARS="-e HF_HUB_CACHE=/mnt/shared-storage-gpfs2/gpfs2-shared-public/huggingface/hub \
             -e HF_DATASETS_CACHE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/hf_cache \
             -e TIKTOKEN_CACHE_DIR=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/share_tiktoken \
             -e TIKTOKEN_ENCODINGS_BASE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/tiktoken_encodings \
@@ -1144,12 +1168,19 @@ jobs:
           GITHUB_RUN_ID="${{ github.run_id }}"
           make_rjob_name() {
             local tag="$1"
-            local name="ete-${tag}-${GITHUB_RUN_ID}-$(date +%H%M%S)"
+            local suffix="${GITHUB_RUN_ID: -6}$(printf '%04d' $((RANDOM % 10000)))"
+            local name="ete-${tag}-${suffix}"
             name=$(echo "${name}" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9-]/-/g' -e 's/--*/-/g' -e 's/^-*//' -e 's/-*$//')
-            local max_len=60  # task id = {name}-t0, DNS label max 63
+            local max_len=49  # kubebrain webhook: job name must be < 50 chars
             if [ ${#name} -gt ${max_len} ]; then
-              name="${name:0:${max_len}}"
-              name=$(echo "${name}" | sed -e 's/-*$//')
+              local prefix_max=$((max_len - ${#suffix} - 1))
+              local prefix="ete-${tag}"
+              prefix=$(echo "${prefix}" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9-]/-/g' -e 's/--*/-/g' -e 's/^-*//' -e 's/-*$//')
+              if [ ${#prefix} -gt ${prefix_max} ]; then
+                prefix="${prefix:0:${prefix_max}}"
+                prefix=$(echo "${prefix}" | sed -e 's/-*$//')
+              fi
+              name="${prefix}-${suffix}"
             fi
             echo "${name}"
           }
