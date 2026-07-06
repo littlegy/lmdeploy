@@ -70,7 +70,7 @@ on:
         default: ''
       runner_label:
         required: false
-        description: 'Self-hosted runner label'
+        description: 'Self-hosted runner label (h-evalservice uses evalservice_gpu rjob group)'
         type: choice
         options:
           - h-191
@@ -90,6 +90,7 @@ env:
   USE_WHL: ${{ inputs.use_whl || 'false' }}
   TRANSFORMERS_VERSION: ${{ inputs.transformers_version || '' }}
   COV_PARAM: --cov /opt/py3/lib/python3.10/site-packages/lmdeploy
+  RJOB_GROUP: ${{ inputs.runner_label == 'h-evalservice' && 'evalservice_gpu' || 'opencompass_gpu' }}
 
 jobs:
   linux-build:
@@ -280,9 +281,9 @@ jobs:
 
           RJOB_CMD="rjob submit \
             --name=${JOB_NAME} \
-            --charged-group=opencompass_gpu \
+            --charged-group=${{ env.RJOB_GROUP }} \
             --private-machine=group \
-            --group=opencompass_gpu \
+            --group=${{ env.RJOB_GROUP }} \
             --gpu=${ACTUAL_GPU} \
             --cpu=${CPU_PER_NODE} \
             --memory=${MEMORY_MB} \
@@ -501,9 +502,9 @@ jobs:
 
           RJOB_CMD="rjob submit \
             --name=${JOB_NAME} \
-            --charged-group=opencompass_gpu \
+            --charged-group=${{ env.RJOB_GROUP }} \
             --private-machine=group \
-            --group=opencompass_gpu \
+            --group=${{ env.RJOB_GROUP }} \
             --gpu=${RJOB_GPU} \
             --cpu=${CPU_PER_NODE} \
             --memory=${MEMORY_MB} \
@@ -621,9 +622,9 @@ jobs:
 
           RJOB_CMD="rjob submit \
             --name=${JOB_NAME} \
-            --charged-group=opencompass_gpu \
+            --charged-group=${{ env.RJOB_GROUP }} \
             --private-machine=group \
-            --group=opencompass_gpu \
+            --group=${{ env.RJOB_GROUP }} \
             --gpu=${ACTUAL_GPU} \
             --cpu=${CPU_PER_NODE} \
             --memory=${MEMORY_MB} \
@@ -1107,9 +1108,9 @@ jobs:
 
           RJOB_CMD="rjob submit \
             --name=${JOB_NAME} \
-            --charged-group=opencompass_gpu \
+            --charged-group=${{ env.RJOB_GROUP }} \
             --private-machine=group \
-            --group=opencompass_gpu \
+            --group=${{ env.RJOB_GROUP }} \
             --gpu=${RJOB_GPU} \
             --cpu=${CPU} \
             --memory=${MEMORY_MB} \
