@@ -278,7 +278,19 @@ jobs:
           # ============================================================
           # Submit rjob
           # ============================================================
-          JOB_NAME="ete-quant-${RUN_ID}-$(date +%H%M%S)"
+          GITHUB_RUN_ID="${{ github.run_id }}"
+          make_rjob_name() {
+            local tag="$1"
+            local name="ete-${tag}-${GITHUB_RUN_ID}-$(date +%H%M%S)"
+            name=$(echo "${name}" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9-]/-/g' -e 's/--*/-/g' -e 's/^-*//' -e 's/-*$//')
+            local max_len=60
+            if [ ${#name} -gt ${max_len} ]; then
+              name="${name:0:${max_len}}"
+              name=$(echo "${name}" | sed -e 's/-*$//')
+            fi
+            echo "${name}"
+          }
+          JOB_NAME=$(make_rjob_name "quant")
 
           RJOB_CMD="rjob submit \
             --name=${JOB_NAME} \
@@ -498,7 +510,19 @@ jobs:
           # ============================================================
           # Submit rjob
           # ============================================================
-          JOB_NAME="ete-tools-${BACKEND}-${MODEL}-${FUNC}-${RUN_ID}-$(date +%H%M%S)"
+          GITHUB_RUN_ID="${{ github.run_id }}"
+          make_rjob_name() {
+            local tag="$1"
+            local name="ete-${tag}-${GITHUB_RUN_ID}-$(date +%H%M%S)"
+            name=$(echo "${name}" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9-]/-/g' -e 's/--*/-/g' -e 's/^-*//' -e 's/-*$//')
+            local max_len=60
+            if [ ${#name} -gt ${max_len} ]; then
+              name="${name:0:${max_len}}"
+              name=$(echo "${name}" | sed -e 's/-*$//')
+            fi
+            echo "${name}"
+          }
+          JOB_NAME=$(make_rjob_name "tools-${BACKEND}-${MODEL}-${FUNC}")
 
           RJOB_CMD="rjob submit \
             --name=${JOB_NAME} \
@@ -617,7 +641,19 @@ jobs:
           # ============================================================
           # Submit rjob
           # ============================================================
-          JOB_NAME="ete-pipeline-${RUN_ID}-$(date +%H%M%S)"
+          GITHUB_RUN_ID="${{ github.run_id }}"
+          make_rjob_name() {
+            local tag="$1"
+            local name="ete-${tag}-${GITHUB_RUN_ID}-$(date +%H%M%S)"
+            name=$(echo "${name}" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9-]/-/g' -e 's/--*/-/g' -e 's/^-*//' -e 's/-*$//')
+            local max_len=60
+            if [ ${#name} -gt ${max_len} ]; then
+              name="${name:0:${max_len}}"
+              name=$(echo "${name}" | sed -e 's/-*$//')
+            fi
+            echo "${name}"
+          }
+          JOB_NAME=$(make_rjob_name "pipeline")
 
           RJOB_CMD="rjob submit \
             --name=${JOB_NAME} \
@@ -1102,7 +1138,19 @@ jobs:
           # ============================================================
           # Submit rjob
           # ============================================================
-          JOB_NAME="ete-restful-${PRESET}-${RUN_ID}-$(date +%H%M%S)"
+          GITHUB_RUN_ID="${{ github.run_id }}"
+          make_rjob_name() {
+            local tag="$1"
+            local name="ete-${tag}-${GITHUB_RUN_ID}-$(date +%H%M%S)"
+            name=$(echo "${name}" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9-]/-/g' -e 's/--*/-/g' -e 's/^-*//' -e 's/-*$//')
+            local max_len=60
+            if [ ${#name} -gt ${max_len} ]; then
+              name="${name:0:${max_len}}"
+              name=$(echo "${name}" | sed -e 's/-*$//')
+            fi
+            echo "${name}"
+          }
+          JOB_NAME=$(make_rjob_name "rf-${PRESET}")
 
           RJOB_CMD="rjob submit \
             --name=${JOB_NAME} \
