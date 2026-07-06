@@ -70,11 +70,12 @@ on:
         default: ''
       runner_label:
         required: false
-        description: 'Self-hosted runner label (h-evalservice uses evalservice_gpu rjob group)'
+        description: 'Self-hosted runner label (h-evalservice→evalservice_gpu, h-llmrazor→llmrazor_gpu)'
         type: choice
         options:
           - h-191
           - h-evalservice
+          - h-llmrazor
         default: 'h-191'
 
 env:
@@ -90,7 +91,7 @@ env:
   USE_WHL: ${{ inputs.use_whl || 'false' }}
   TRANSFORMERS_VERSION: ${{ inputs.transformers_version || '' }}
   COV_PARAM: --cov /opt/py3/lib/python3.10/site-packages/lmdeploy
-  RJOB_GROUP: ${{ inputs.runner_label == 'h-evalservice' && 'evalservice_gpu' || 'opencompass_gpu' }}
+  RJOB_GROUP: ${{ inputs.runner_label == 'h-evalservice' && 'evalservice_gpu' || (inputs.runner_label == 'h-llmrazor' && 'llmrazor_gpu' || 'opencompass_gpu') }}
 
 jobs:
   linux-build:
