@@ -289,7 +289,6 @@ jobs:
             --cpu=${CPU_PER_NODE} \
             --memory=${MEMORY_MB} \
             --image=${DOCKER_IMAGE} \
-            --image-pull-policy=Always \
             ${COMMON_ENV_VARS} \
             ${COMMON_MOUNTS} \
             --host-network=False \
@@ -510,7 +509,6 @@ jobs:
             --cpu=${CPU_PER_NODE} \
             --memory=${MEMORY_MB} \
             --image=${DOCKER_IMAGE} \
-            --image-pull-policy=Always \
             ${COMMON_ENV_VARS} \
             ${COMMON_MOUNTS} \
             ${TOOLS_RESTFUL_EXTRA_ENV} \
@@ -630,7 +628,6 @@ jobs:
             --cpu=${CPU_PER_NODE} \
             --memory=${MEMORY_MB} \
             --image=${DOCKER_IMAGE} \
-            --image-pull-policy=Always \
             ${COMMON_ENV_VARS} \
             ${COMMON_MOUNTS} \
             --host-network=False \
@@ -1116,7 +1113,6 @@ jobs:
             --cpu=${CPU} \
             --memory=${MEMORY_MB} \
             --image=${DOCKER_IMAGE} \
-            --image-pull-policy=Always \
             ${COMMON_ENV_VARS} \
             ${SLEEP_WAKEUP_EXTRA_ENV} \
             ${PROXY_EXTRA_ENV} \
