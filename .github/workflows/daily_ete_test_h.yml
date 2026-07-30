@@ -68,15 +68,17 @@ on:
         description: 'Optional transformers version override (e.g. 4.57.6). Empty means use image default'
         type: string
         default: ''
-      runner_label:
+      rjob_group:
         required: false
-        description: 'Self-hosted runner label (h-evalservice→evalservice_gpu, h-llmrazor→llmrazor_gpu)'
+        description: 'Optional rjob partition/group; namespace is derived (e.g. llmrazor_gpu → ailab-llmrazor, updatedriver → ailab-zskj)'
         type: choice
         options:
-          - h-191
-          - h-evalservice
-          - h-llmrazor
-        default: 'h-191'
+          - llmrazor_gpu
+          - llmeval_gpu
+          - opencompass_gpu
+          - evalservice_gpu
+          - updatedriver
+        default: 'llmrazor_gpu'
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
@@ -91,7 +93,8 @@ env:
   USE_WHL: ${{ inputs.use_whl || 'false' }}
   TRANSFORMERS_VERSION: ${{ inputs.transformers_version || '' }}
   COV_PARAM: --cov /opt/py3/lib/python3.10/site-packages/lmdeploy
-  RJOB_GROUP: ${{ inputs.runner_label == 'h-evalservice' && 'evalservice_gpu' || (inputs.runner_label == 'h-llmrazor' && 'llmrazor_gpu' || 'opencompass_gpu') }}
+  RJOB_GROUP: ${{ inputs.rjob_group || 'llmrazor_gpu' }}
+  RJOB_NAMESPACE: ${{ (inputs.rjob_group || 'llmrazor_gpu') == 'updatedriver' && 'ailab-zskj' || ((inputs.rjob_group || 'llmrazor_gpu') == 'llmeval_gpu' && 'ailab-llmeval' || ((inputs.rjob_group || 'llmrazor_gpu') == 'evalservice_gpu' && 'ailab-evalservice' || ((inputs.rjob_group || 'llmrazor_gpu') == 'opencompass_gpu' && 'ailab-opencompass' || 'ailab-llmrazor'))) }}
 
 jobs:
   linux-build:
@@ -142,7 +145,7 @@ jobs:
   download_pkgs:
     needs: linux-build
     if: ${{!cancelled() && inputs.use_whl && !inputs.offline_mode}}
-    runs-on: ${{ fromJSON(format('["self-hosted", "{0}"]', inputs.runner_label || 'h-191')) }}
+    runs-on: [self-hosted, h-191]
     timeout-minutes: 50
     steps:
       - name: Download Artifacts
@@ -155,7 +158,7 @@ jobs:
   prepare_env:
     if: ${{!cancelled()}}
     needs: download_pkgs
-    runs-on: ${{ fromJSON(format('["self-hosted", "{0}"]', inputs.runner_label || 'h-191')) }}
+    runs-on: [self-hosted, h-191]
     timeout-minutes: 10
     steps:
       - name: Mark as start
@@ -168,7 +171,7 @@ jobs:
   test_quantization:
     needs: prepare_env
     if: ${{!cancelled() && (github.event_name == 'schedule' || contains(fromJSON(github.event.inputs.regression_func), 'quant'))}}
-    runs-on: ${{ fromJSON(format('["self-hosted", "{0}"]', inputs.runner_label || 'h-191')) }}
+    runs-on: [self-hosted, h-191]
     timeout-minutes: 30
     steps:
       - name: Submit quantization test job via rjob
@@ -302,6 +305,7 @@ jobs:
           RJOB_CMD="rjob submit \
             --name=${JOB_NAME} \
             --task_name=t0 \
+            --namespace=${{ env.RJOB_NAMESPACE }} \
             --charged-group=${{ env.RJOB_GROUP }} \
             --private-machine=group \
             --group=${{ env.RJOB_GROUP }} \
@@ -321,7 +325,7 @@ jobs:
 
   test_tools:
     if: ${{!cancelled() && (github.event_name == 'schedule' || contains(fromJSON(github.event.inputs.regression_func), 'tools'))}}
-    runs-on: ${{ fromJSON(format('["self-hosted", "{0}"]', inputs.runner_label || 'h-191')) }}
+    runs-on: [self-hosted, h-191]
     needs: test_quantization
     timeout-minutes: 30
     strategy:
@@ -545,6 +549,7 @@ jobs:
           RJOB_CMD="rjob submit \
             --name=${JOB_NAME} \
             --task_name=t0 \
+            --namespace=${{ env.RJOB_NAMESPACE }} \
             --charged-group=${{ env.RJOB_GROUP }} \
             --private-machine=group \
             --group=${{ env.RJOB_GROUP }} \
@@ -565,7 +570,7 @@ jobs:
 
   test_pipeline:
     if: ${{!cancelled() && (github.event_name == 'schedule' || contains(fromJSON(github.event.inputs.regression_func), 'pipeline'))}}
-    runs-on: ${{ fromJSON(format('["self-hosted", "{0}"]', inputs.runner_label || 'h-191')) }}
+    runs-on: [self-hosted, h-191]
     needs: test_quantization
     timeout-minutes: 30
     steps:
@@ -684,6 +689,7 @@ jobs:
           RJOB_CMD="rjob submit \
             --name=${JOB_NAME} \
             --task_name=t0 \
+            --namespace=${{ env.RJOB_NAMESPACE }} \
             --charged-group=${{ env.RJOB_GROUP }} \
             --private-machine=group \
             --group=${{ env.RJOB_GROUP }} \
@@ -703,7 +709,7 @@ jobs:
 
   test_restful:
     if: ${{!cancelled() && (github.event_name == 'schedule' || contains(fromJSON(github.event.inputs.regression_func), 'restful'))}}
-    runs-on: ${{ fromJSON(format('["self-hosted", "{0}"]', inputs.runner_label || 'h-191')) }}
+    runs-on: [self-hosted, h-191]
     needs: test_quantization
     timeout-minutes: 30
     strategy:
@@ -1189,6 +1195,7 @@ jobs:
           RJOB_CMD="rjob submit \
             --name=${JOB_NAME} \
             --task_name=t0 \
+            --namespace=${{ env.RJOB_NAMESPACE }} \
             --charged-group=${{ env.RJOB_GROUP }} \
             --private-machine=group \
             --group=${{ env.RJOB_GROUP }} \
