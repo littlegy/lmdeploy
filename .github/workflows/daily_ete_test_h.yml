@@ -775,7 +775,7 @@ jobs:
           DIST_PIP=""
 
           if $IS_DISTRIBUTED; then
-            # ---- 16-GPU distributed markers (tp16 / dpep16)，与 tools restful 对齐 ----
+            # ---- 多机 distributed markers (tp16 / dpep16) ----
             LOGICAL_GPU=${GPU}
             NUM_NODES=${NUM_NODES}
             TOTAL_GPU_COUNT=$(( LOGICAL_GPU * NUM_NODES ))
@@ -794,7 +794,7 @@ jobs:
             RESTFUL_EXTRA_ENV="${RESTFUL_EXTRA_ENV} -e DISTRIBUTED_JOB=true -e TOTAL_GPU_COUNT=${TOTAL_GPU_COUNT} -e LMDEPLOY_SKIP_INTERFACE_SLEEP_WAKEUP=1"
             DIST_PIP="pip install -e ${LLM_DIST_DIR} --no-cache-dir; "
           else
-            # ---- Concurrent：gpu_num_1..8 + INTERFACE_BACKENDS ----
+            # ---- Concurrent：gpu_num_1..8（单机）；dp4ep8 也跟 8 卡同 job ----
             ACTUAL_GPU=${GPU_PER_NODE}
             RJOB_GPU=${ACTUAL_GPU}
             MEMORY_PER_GPU_MB=64000
@@ -803,6 +803,10 @@ jobs:
               RESTFUL_EXTRA_ENV="${RESTFUL_EXTRA_ENV} -e DISTRIBUTED_JOB=true -e TOTAL_GPU_COUNT=${ACTUAL_GPU} -e LMDEPLOY_UPDATE_WEIGHTS_CUDA_DEVICE=${ACTUAL_GPU}"
             else
               RESTFUL_EXTRA_ENV="${RESTFUL_EXTRA_ENV} -e LMDEPLOY_SKIP_INTERFACE_SLEEP_WAKEUP=1"
+              # 单机 proxy dp4ep8（与 gpu_num_8 同容器）；多机才走上面 IS_DISTRIBUTED
+              if [ "${BACKEND}" = "pytorch" ]; then
+                DIST_PIP="pip install -e ${LLM_DIST_DIR} --no-cache-dir; "
+              fi
             fi
             CPU_PER_NODE=$(( RJOB_GPU * 10 ))
             MEMORY_MB=$(( RJOB_GPU * MEMORY_PER_GPU_MB ))
@@ -852,7 +856,7 @@ jobs:
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
           if $IS_DISTRIBUTED; then
-            # 同一入口：pytest -m gpu_num_distributed_tp16 / dpep16（无 -n）
+            # 多机：pytest -m gpu_num_distributed_tp16 / dpep16（无 -n）
             TEST_CMDS="echo INTERFACE_BACKENDS=\${INTERFACE_BACKENDS} MARKER=${MARKER}; "
             TEST_CMDS+="(pytest ${TEST_FILE} -m \"${MARKER}\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
             REMOTE_CMD="${DIST_ENV_SETUP}${PIP_SETUP}${TEST_CMDS}"
@@ -873,6 +877,10 @@ jobs:
                 TEST_CMDS+="(pytest ${TEST_FILE} -m \"gpu_num_${gpu_num}\" -n ${N} --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
               fi
             done
+            # 单机 8 卡：dp4ep8 与 gpu_num_8 同 job（不另开 matrix）
+            if [ "${BACKEND}" = "pytorch" ] && [ "${ACTUAL_GPU}" -ge 8 ]; then
+              TEST_CMDS+="(DISTRIBUTED_JOB=true TOTAL_GPU_COUNT=${ACTUAL_GPU} LMDEPLOY_PORT=8000 PROXY_PORT=8000 pytest ${TEST_FILE} -m \"gpu_num_distributed_dp4ep8\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            fi
             REMOTE_CMD="${PIP_SETUP} ${TEST_CMDS}"
             case "${BACKEND}" in turbomind) B_TAG=tm;; pytorch) B_TAG=pt;; *) B_TAG="${BACKEND}";; esac
             JOB_TAG="rf-${B_TAG}"
