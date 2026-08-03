@@ -145,7 +145,7 @@ jobs:
   download_pkgs:
     needs: linux-build
     if: ${{!cancelled() && inputs.use_whl && !inputs.offline_mode}}
-    runs-on: [self-hosted, h-191]
+    runs-on: [self-hosted, h-razor]
     timeout-minutes: 50
     steps:
       - name: Download Artifacts
@@ -158,7 +158,7 @@ jobs:
   prepare_env:
     if: ${{!cancelled()}}
     needs: download_pkgs
-    runs-on: [self-hosted, h-191]
+    runs-on: [self-hosted, h-razor]
     timeout-minutes: 10
     steps:
       - name: Mark as start
@@ -171,7 +171,7 @@ jobs:
   test_quantization:
     needs: prepare_env
     if: ${{!cancelled() && (github.event_name == 'schedule' || contains(fromJSON(github.event.inputs.regression_func), 'quant'))}}
-    runs-on: [self-hosted, h-191]
+    runs-on: [self-hosted, h-razor]
     timeout-minutes: 30
     steps:
       - name: Submit quantization test job via rjob
@@ -258,8 +258,8 @@ jobs:
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
             pip install -r requirements/test.txt --no-cache-dir; \
             ${TRANSFORMERS_PIP}\
-            pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.29.2; \
-            python -c \"import importlib.metadata as md; assert md.version(\\\"nvidia-nccl-cu12\\\")==\\\"2.29.2\\\", md.version(\\\"nvidia-nccl-cu12\\\")\"; \
+            pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.30.7; \
+            python -c \"import importlib.metadata as md; assert md.version(\\\"nvidia-nccl-cu12\\\")==\\\"2.30.7\\\", md.version(\\\"nvidia-nccl-cu12\\\")\"; \
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
           # ============================================================
@@ -325,7 +325,7 @@ jobs:
 
   test_tools:
     if: ${{!cancelled() && (github.event_name == 'schedule' || contains(fromJSON(github.event.inputs.regression_func), 'tools'))}}
-    runs-on: [self-hosted, h-191]
+    runs-on: [self-hosted, h-razor]
     needs: test_quantization
     timeout-minutes: 30
     strategy:
@@ -459,8 +459,8 @@ jobs:
             pip install -r requirements/test.txt --no-cache-dir; \
             ${EXTRA_PIP}\
             ${TRANSFORMERS_PIP}\
-            pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.29.2; \
-            python -c \"import importlib.metadata as md; assert md.version(\\\"nvidia-nccl-cu12\\\")==\\\"2.29.2\\\", md.version(\\\"nvidia-nccl-cu12\\\")\"; \
+            pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.30.7; \
+            python -c \"import importlib.metadata as md; assert md.version(\\\"nvidia-nccl-cu12\\\")==\\\"2.30.7\\\", md.version(\\\"nvidia-nccl-cu12\\\")\"; \
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
           # ============================================================
@@ -570,7 +570,7 @@ jobs:
 
   test_pipeline:
     if: ${{!cancelled() && (github.event_name == 'schedule' || contains(fromJSON(github.event.inputs.regression_func), 'pipeline'))}}
-    runs-on: [self-hosted, h-191]
+    runs-on: [self-hosted, h-razor]
     needs: test_quantization
     timeout-minutes: 30
     steps:
@@ -639,8 +639,8 @@ jobs:
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
             pip install -r requirements/test.txt --no-cache-dir; \
             ${TRANSFORMERS_PIP}\
-            pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.29.2; \
-            python -c \"import importlib.metadata as md; assert md.version(\\\"nvidia-nccl-cu12\\\")==\\\"2.29.2\\\", md.version(\\\"nvidia-nccl-cu12\\\")\"; \
+            pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.30.7; \
+            python -c \"import importlib.metadata as md; assert md.version(\\\"nvidia-nccl-cu12\\\")==\\\"2.30.7\\\", md.version(\\\"nvidia-nccl-cu12\\\")\"; \
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
           # gpu_num_X marker → -n = ACTUAL_GPU / X
@@ -709,407 +709,103 @@ jobs:
 
   test_restful:
     if: ${{!cancelled() && (github.event_name == 'schedule' || contains(fromJSON(github.event.inputs.regression_func), 'restful'))}}
-    runs-on: [self-hosted, h-191]
+    runs-on: [self-hosted, h-razor]
     needs: test_quantization
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
+        # Concurrent: backend × gpu_num_1..8 via test_restful_interface_llm.py
+        backend: ${{ fromJSON(inputs.backend || '["turbomind", "pytorch"]')}}
+        # Distributed 16-GPU (8×2): same entrypoint, tools-style distributed markers
         include:
-          # RESTFUL_MODEL_LIST_LATEST only (constant.py); run_interface_tests.py
-          # ---- LLM + pytorch ----
-          - preset: qwen3-30b-a3b-pytorch
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-          - preset: qwen3-32b-pytorch
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-          - preset: qwen3-0.6b-pytorch
-            gpu: 1
-            backend: pytorch
-            model_type: llm
-          - preset: qwen3.5-27b-pytorch
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-          - preset: internlm3-8b-pytorch
-            gpu: 1
-            backend: pytorch
-            model_type: llm
-          - preset: llama3.2-3b-pytorch
-            gpu: 1
-            backend: pytorch
-            model_type: llm
-          - preset: intern-s1-pytorch
-            gpu: 4
-            backend: pytorch
-            model_type: llm
-          # ---- Intern-S2 preview (submit_interface_tests.sh) ----
-          - preset: inters2-preview-fp8-pytorch
-            gpu: 1
-            backend: pytorch
-            model_type: llm
-          - preset: inters2-preview-fp8-pytorch-mtp
-            gpu: 1
-            backend: pytorch
-            model_type: llm
-          - preset: inters2-preview-pytorch
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-          - preset: inters2-preview-pytorch-mtp
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-          - preset: inters2-preview-pytorch-longtext
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-          # ---- Qwen 3.5 LLM + pytorch ----
-          - preset: qwen3.5-35b-a3b-pytorch
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-          - preset: qwen3.5-35b-a3b-pytorch-mtp
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-          - preset: qwen3.5-35b-a3b-fp8-format-pytorch
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-          - preset: qwen3.5-35b-a3b-fp8-format-pytorch-mtp
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-          - preset: qwen3.5-35b-a3b-fp8-pytorch
-            gpu: 1
-            backend: pytorch
-            model_type: llm
-          - preset: qwen3.5-35b-a3b-fp8-pytorch-mtp
-            gpu: 1
-            backend: pytorch
-            model_type: llm
-          - preset: qwen3.5-122b-a10b-pytorch
-            gpu: 4
-            backend: pytorch
-            model_type: llm
-          - preset: qwen3.5-122b-a10b-pytorch-mtp
-            gpu: 4
-            backend: pytorch
-            model_type: llm
-          - preset: qwen3.5-35b-a3b-turbomind
-            gpu: 2
-            backend: turbomind
-            model_type: llm
-          - preset: qwen3.5-35b-a3b-turbomind-mtp
-            gpu: 2
-            backend: turbomind
-            model_type: llm
-          - preset: qwen3.5-35b-a3b-fp8-format-turbomind
-            gpu: 2
-            backend: turbomind
-            model_type: llm
-          - preset: qwen3.5-35b-a3b-fp8-format-turbomind-mtp
-            gpu: 2
-            backend: turbomind
-            model_type: llm
-          - preset: qwen3.5-35b-a3b-fp8-turbomind
-            gpu: 1
-            backend: turbomind
-            model_type: llm
-          - preset: qwen3.5-35b-a3b-fp8-turbomind-mtp
-            gpu: 1
-            backend: turbomind
-            model_type: llm
-          - preset: qwen3.5-122b-a10b-turbomind
-            gpu: 4
-            backend: turbomind
-            model_type: llm
-          - preset: qwen3.5-122b-a10b-turbomind-mtp
-            gpu: 4
-            backend: turbomind
-            model_type: llm
-          # ---- LLM + turbomind ----
-          - preset: qwen3-30b-a3b-turbomind
-            gpu: 2
-            backend: turbomind
-            model_type: llm
-          - preset: qwen3-32b-turbomind
-            gpu: 2
-            backend: turbomind
-            model_type: llm
-          - preset: qwen3-0.6b-turbomind
-            gpu: 1
-            backend: turbomind
-            model_type: llm
-          - preset: qwen3.5-27b-turbomind
-            gpu: 2
-            backend: turbomind
-            model_type: llm
-          - preset: internlm3-8b-turbomind
-            gpu: 1
-            backend: turbomind
-            model_type: llm
-          - preset: llama3.2-3b-turbomind
-            gpu: 1
-            backend: turbomind
-            model_type: llm
-          - preset: intern-s1-turbomind
-            gpu: 4
-            backend: turbomind
-            model_type: llm
-          # ---- MLLM + pytorch ----
-          - preset: internvl3_5-30b-a3b-pytorch
-            gpu: 2
-            backend: pytorch
-            model_type: mllm
-          - preset: internvl3-38b-pytorch
-            gpu: 2
-            backend: pytorch
-            model_type: mllm
-          - preset: qwen3-vl-8b-pytorch
-            gpu: 1
-            backend: pytorch
-            model_type: mllm
-          - preset: qwen3-vl-30b-a3b-pytorch
-            gpu: 2
-            backend: pytorch
-            model_type: mllm
-          # ---- MLLM + turbomind ----
-          - preset: internvl3_5-30b-a3b-turbomind
-            gpu: 2
-            backend: turbomind
-            model_type: mllm
-          - preset: internvl3-38b-turbomind
-            gpu: 2
-            backend: turbomind
-            model_type: mllm
-          - preset: qwen3-vl-8b-turbomind
-            gpu: 1
-            backend: turbomind
-            model_type: mllm
-          - preset: qwen3-vl-30b-a3b-turbomind
-            gpu: 2
-            backend: turbomind
-            model_type: mllm
-          # ---- Tool / Reasoning (TOOL_REASONING_MODEL_LIST_LATEST; run_tool_reasoning_tests.py) ----
-          - preset: qwen2d5
-            gpu: 1
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: qwen3
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: qwen3.5-35b-a3b-fp8-pytorch
-            gpu: 1
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: qwen3.5-35b-a3b-fp8-pytorch-mtp
-            gpu: 1
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: qwen3.5-35b-a3b-pytorch
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: qwen3.5-35b-a3b-pytorch-mtp
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: qwen3.5-35b-a3b-fp8-format-pytorch
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: qwen3.5-35b-a3b-fp8-format-pytorch-mtp
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          # ---- Intern-S2 preview (submit_tool_reasoning_tests.sh) ----
-          - preset: inters2-preview-fp8-pytorch
-            gpu: 1
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: inters2-preview-fp8-pytorch-mtp
-            gpu: 1
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: inters2-preview-pytorch
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: inters2-preview-pytorch-mtp
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: deepseek-qwen
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: gpt-oss
-            gpu: 2
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: qwen3.5-122b-a10b-pytorch
-            gpu: 4
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: qwen3.5-122b-a10b-pytorch-mtp
-            gpu: 4
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: llama3
-            gpu: 4
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: deepseek-v3
-            gpu: 8
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: intern-s1-pro-proxy
+          - backend: pytorch
             gpu: 8
             nodes: 2
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
-          - preset: intern-s1-pro-ray
+            marker: gpu_num_distributed_tp16
+          - backend: pytorch
             gpu: 8
             nodes: 2
-            backend: pytorch
-            model_type: llm
-            script: run_tool_reasoning_tests.py
+            marker: gpu_num_distributed_dpep16
     steps:
       - name: Submit restful interface test job via rjob
         env:
-          PRESET: ${{ matrix.preset }}
-          GPU: ${{ matrix.gpu }}
+          BACKEND: ${{ matrix.backend }}
+          MARKER: ${{ matrix.marker || '' }}
+          GPU: ${{ matrix.gpu || '' }}
           NUM_NODES: ${{ matrix.nodes || 1 }}
-          RUNNER_SCRIPT: ${{ matrix.script || 'run_interface_tests.py' }}
+          BACKENDS_JSON: ${{ inputs.backend || '["turbomind", "pytorch"]' }}
         run: |
           set -e
 
-          # ============================================================
-          # Filter: skip if backend or model_type not in inputs
-          # Uses grep -w (whole-word match) to avoid llm matching mllm
-          # ============================================================
-          BACKEND_FILTER="${{ inputs.backend || '[\"turbomind\", \"pytorch\"]' }}"
-          MODEL_FILTER="${{ inputs.model || '[\"llm\", \"mllm\"]' }}"
-
-          if ! echo "${BACKEND_FILTER}" | grep -qw "${{ matrix.backend }}"; then
-            echo "⏭ Skip: backend '${{ matrix.backend }}' not in ${BACKEND_FILTER}"
-            exit 0
-          fi
-          if ! echo "${MODEL_FILTER}" | grep -qw "${{ matrix.model_type }}"; then
-            echo "⏭ Skip: model_type '${{ matrix.model_type }}' not in ${MODEL_FILTER}"
+          # include 无条件追加；backend 不在入参时跳过
+          BACKENDS=$(echo "${BACKENDS_JSON}" | tr -d "[]'" | tr ',' ' ')
+          SKIP=true
+          for b in $BACKENDS; do
+            b=$(echo "$b" | tr -d ' ')
+            [ "$b" = "${BACKEND}" ] && SKIP=false && break
+          done
+          if $SKIP; then
+            echo "Backend ${BACKEND} not in ${BACKENDS_JSON}, skipping..."
             exit 0
           fi
 
-          # ============================================================
-          # Configuration
-          # ============================================================
+          WORK_DIR="${{ env.WORK_DIR }}"
           DOCKER_IMAGE="${{ env.DOCKER_IMAGE }}"
           TEST_ENV="${{ env.TEST_ENV }}"
+          GPU_PER_NODE=${{ env.GPU_PER_NODE }}
           RUN_ID="${{ env.RUN_ID }}"
           REPORT_DIR="${{ env.REPORT_DIR }}"
           ALLURE_REPORT_DIR="${{ env.ALLURE_REPORT_DIR }}"
           COV_PARAM="${{ env.COV_PARAM }}"
           USE_WHL="${{ env.USE_WHL }}"
-
-          WORK_DIR="${{ env.WORK_DIR }}"
-          FUNC_TESTS_DIR="/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/func_tests"
           LLM_DIST_DIR="/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/llm_distributed"
+          TEST_FILE="autotest/interface/restful/test_restful_interface_llm.py"
 
-          IS_TOOL_RUNNER=false
-          [[ "${RUNNER_SCRIPT}" == *tool_reasoning* ]] && IS_TOOL_RUNNER=true
+          IS_DISTRIBUTED=false
+          [[ -n "${MARKER}" ]] && IS_DISTRIBUTED=true
 
-          # matrix.gpu = 每节点逻辑卡数；matrix.nodes = 节点数（分布式 preset，如 intern-s1-pro-proxy）
-          # TOTAL_GPU_COUNT = gpu × nodes；与 submit_interface_tests.sh / submit_tool_reasoning_tests.sh 一致
-          LOGICAL_GPU=${GPU}
-          NUM_NODES=${NUM_NODES}
-          TOTAL_GPU_COUNT=$(( LOGICAL_GPU * NUM_NODES ))
-          RJOB_GPU=${LOGICAL_GPU}
-          PROXY_EXTRA_ENV=""
-          PROXY_REMOTE_EXPORTS=""
-          PROXY_RUNNER_ARGS=""
           HOST_NETWORK="--host-network=False"
           RJOB_PARALLEL=""
           DIST_ENV_SETUP=""
-          if [[ "${PRESET}" == *-proxy ]]; then
-            PROXY_EXTRA_ENV="-e LMDEPLOY_PORT=8000 -e PROXY_PORT=8000"
-            PROXY_REMOTE_EXPORTS="export LMDEPLOY_PORT=8000; export PROXY_PORT=8000;"
-            if ! $IS_TOOL_RUNNER; then
-              PROXY_RUNNER_ARGS="--test-type chat_completions"
-            fi
-          fi
-          if [[ "${NUM_NODES}" -gt 1 ]]; then
-            HOST_NETWORK="--host-network=True"
-            RJOB_PARALLEL="-P ${NUM_NODES}"
-            DIST_ENV_SETUP='export LMDEPLOY_DP_MASTER_ADDR="$MASTER_ADDR"; export LMDEPLOY_DP_MASTER_PORT=29555; export DEEPEP_MAX_TOKENS_PER_RANK=256; '
-          fi
-          SLEEP_WAKEUP_EXTRA_ENV=""
-          if ! $IS_TOOL_RUNNER; then
-            if [[ "${NUM_NODES}" -ge 8 ]] || [[ "${LOGICAL_GPU}" -ge 8 ]]; then
-              SLEEP_WAKEUP_EXTRA_ENV="${SLEEP_WAKEUP_EXTRA_ENV} -e LMDEPLOY_SKIP_INTERFACE_SLEEP_WAKEUP=1"
-            fi
-            extra_gpu=0
-            if [[ "${NUM_NODES}" -ge 1 ]] && [[ "${NUM_NODES}" -le 4 ]]; then
-              case "${PRESET}" in
-                qwen3.5-35b-a3b-pytorch|qwen3.5-35b-a3b-pytorch-mtp|\
-                qwen3.5-35b-a3b-fp8-format-pytorch|qwen3.5-35b-a3b-fp8-format-pytorch-mtp)
-                  [[ "${LOGICAL_GPU}" -eq 2 ]] && extra_gpu=1
-                  ;;
-                qwen3.5-122b-a10b-pytorch|qwen3.5-122b-a10b-pytorch-mtp)
-                  [[ "${LOGICAL_GPU}" -eq 4 ]] && extra_gpu=2
-                  ;;
-                qwen3-30b-a3b-pytorch)
-                  [[ "${LOGICAL_GPU}" -eq 2 ]] && extra_gpu=1
-                  ;;
-                inters2-preview-pytorch|inters2-preview-pytorch-mtp|inters2-preview-pytorch-longtext)
-                  [[ "${LOGICAL_GPU}" -eq 2 ]] && extra_gpu=1
-                  ;;
-              esac
-            fi
-            if [[ "${extra_gpu}" -ge 1 ]]; then
-              RJOB_GPU=$(( LOGICAL_GPU + extra_gpu ))
-              SLEEP_WAKEUP_EXTRA_ENV="${SLEEP_WAKEUP_EXTRA_ENV} -e LMDEPLOY_UPDATE_WEIGHTS_CUDA_DEVICE=${LOGICAL_GPU}"
-            fi
-          fi
-          if $IS_TOOL_RUNNER; then
-            MEMORY_PER_GPU_MB=32000
-          else
+          PROXY_EXTRA_ENV=""
+          RESTFUL_EXTRA_ENV="-e INTERFACE_BACKENDS=${BACKEND}"
+          DIST_PIP=""
+
+          if $IS_DISTRIBUTED; then
+            # ---- 16-GPU distributed markers (tp16 / dpep16)，与 tools restful 对齐 ----
+            LOGICAL_GPU=${GPU}
+            NUM_NODES=${NUM_NODES}
+            TOTAL_GPU_COUNT=$(( LOGICAL_GPU * NUM_NODES ))
+            RJOB_GPU=${LOGICAL_GPU}
             MEMORY_PER_GPU_MB=64000
-          fi
-          MEMORY_MB=$(( RJOB_GPU * MEMORY_PER_GPU_MB ))
-          if [[ "${NUM_NODES}" -gt 1 ]]; then
-            CPU=$(( 20 * NUM_NODES ))
+            MEMORY_MB=$(( RJOB_GPU * MEMORY_PER_GPU_MB ))
+            CPU_PER_NODE=$(( 20 * NUM_NODES ))
+            if [[ "${NUM_NODES}" -gt 1 ]]; then
+              HOST_NETWORK="--host-network=True"
+              RJOB_PARALLEL="-P ${NUM_NODES}"
+              DIST_ENV_SETUP='export LMDEPLOY_DP_MASTER_ADDR="$MASTER_ADDR"; export LMDEPLOY_DP_MASTER_PORT=29555; export DEEPEP_MAX_TOKENS_PER_RANK=256; '
+            fi
+            if [[ "${MARKER}" == *dpep* ]] || [[ "${MARKER}" == *proxy* ]]; then
+              PROXY_EXTRA_ENV="-e LMDEPLOY_PORT=8000 -e PROXY_PORT=8000"
+            fi
+            RESTFUL_EXTRA_ENV="${RESTFUL_EXTRA_ENV} -e DISTRIBUTED_JOB=true -e TOTAL_GPU_COUNT=${TOTAL_GPU_COUNT} -e LMDEPLOY_SKIP_INTERFACE_SLEEP_WAKEUP=1"
+            DIST_PIP="pip install -e ${LLM_DIST_DIR} --no-cache-dir; "
           else
-            CPU=$(( RJOB_GPU * 10 ))
+            # ---- Concurrent：gpu_num_1..8 + INTERFACE_BACKENDS ----
+            ACTUAL_GPU=${GPU_PER_NODE}
+            RJOB_GPU=${ACTUAL_GPU}
+            MEMORY_PER_GPU_MB=64000
+            if [ "${ACTUAL_GPU}" -lt 8 ]; then
+              RJOB_GPU=$(( ACTUAL_GPU + 1 ))
+              RESTFUL_EXTRA_ENV="${RESTFUL_EXTRA_ENV} -e DISTRIBUTED_JOB=true -e TOTAL_GPU_COUNT=${ACTUAL_GPU} -e LMDEPLOY_UPDATE_WEIGHTS_CUDA_DEVICE=${ACTUAL_GPU}"
+            else
+              RESTFUL_EXTRA_ENV="${RESTFUL_EXTRA_ENV} -e LMDEPLOY_SKIP_INTERFACE_SLEEP_WAKEUP=1"
+            fi
+            CPU_PER_NODE=$(( RJOB_GPU * 10 ))
+            MEMORY_MB=$(( RJOB_GPU * MEMORY_PER_GPU_MB ))
           fi
 
-          # ============================================================
-          # Common env vars & mounts
-          # ============================================================
           COMMON_ENV_VARS="-e HF_HUB_CACHE=/mnt/shared-storage-gpfs2/gpfs2-shared-public/huggingface/hub \
             -e HF_DATASETS_CACHE=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/hf_cache \
             -e TIKTOKEN_CACHE_DIR=/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/share_tiktoken \
@@ -1118,10 +814,7 @@ jobs:
             -e TRANSFORMERS_OFFLINE=1 \
             -e HF_EVALUATE_OFFLINE=1 \
             -e HF_HUB_OFFLINE=1 \
-            -e DISTRIBUTED_JOB=true \
-            -e LMEPLOY_TOOL_DIR=${WORK_DIR} \
             -e TEST_ENV=${TEST_ENV} \
-            -e TOTAL_GPU_COUNT=${TOTAL_GPU_COUNT} \
             -e RUN_ID=${RUN_ID} \
             -e PIP_INDEX_URL=\"http://mirrors.i.h.pjlab.org.cn/pypi/simple/\" \
             -e PIP_EXTRA_INDEX_URL=\"http://pypi.i.h.pjlab.org.cn/brain/dev/+simple\" \
@@ -1133,12 +826,9 @@ jobs:
             --mount=gpfs://gpfs2/gpfs2-shared-public:/mnt/shared-storage-gpfs2/gpfs2-shared-public \
             --mount=gpfs://gpfs2/llmit1:/mnt/shared-storage-gpfs2/llmit1"
 
-          # ============================================================
-          # Pip setup (conditionally install whl or use Docker env)
-          # ============================================================
           WHL_INSTALL=""
           if [ "${USE_WHL}" == "true" ]; then
-            WHL_INSTALL="pip uninstall lmdeploy -y; pip install ${{ env.WORK_DIR }}/lmdeploy-*.whl --no-deps; "
+            WHL_INSTALL="pip uninstall lmdeploy -y; pip install lmdeploy-*.whl --no-deps; "
           fi
 
           TRANSFORMERS_PIP=""
@@ -1152,32 +842,47 @@ jobs:
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/fast_hadamard_transform-1.1.0+cu12torch2.10cxx11abiTRUE-cp312-cp312-linux_x86_64.whl; \
             ${WHL_INSTALL}\
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
-            pip install -r requirements/test.txt --no-cache-dir 2>/dev/null || true; \
-            pip install -e ${LLM_DIST_DIR} --no-cache-dir; \
+            pip install -r requirements/test.txt --no-cache-dir; \
+            ${DIST_PIP}\
             ${TRANSFORMERS_PIP}\
-            pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.29.2; \
-            python -c \"import importlib.metadata as md; assert md.version(\\\"nvidia-nccl-cu12\\\")==\\\"2.29.2\\\", md.version(\\\"nvidia-nccl-cu12\\\")\"; \
+            pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.30.7; \
+            python -c \"import importlib.metadata as md; assert md.version(\\\"nvidia-nccl-cu12\\\")==\\\"2.30.7\\\", md.version(\\\"nvidia-nccl-cu12\\\")\"; \
             mkdir -p ${REPORT_DIR}; mkdir -p ${ALLURE_REPORT_DIR};"
 
-          # ============================================================
-          # Run command — all model/backend/tp/marks/extra config from
-          # run_interface_tests.py PRESETS via --preset
-          # ============================================================
-          RUN_CMD="python ${FUNC_TESTS_DIR}/${RUNNER_SCRIPT} \
-            --preset ${PRESET} \
-            ${PROXY_RUNNER_ARGS} \
-            --pytest-args \"-v -s --tb=short --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM}\""
+          if $IS_DISTRIBUTED; then
+            # 同一入口：pytest -m gpu_num_distributed_tp16 / dpep16（无 -n）
+            TEST_CMDS="echo INTERFACE_BACKENDS=\${INTERFACE_BACKENDS} MARKER=${MARKER}; "
+            TEST_CMDS+="(pytest ${TEST_FILE} -m \"${MARKER}\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            REMOTE_CMD="${DIST_ENV_SETUP}${PIP_SETUP}${TEST_CMDS}"
+            case "${MARKER}" in
+              *dpep*) M_TAG=dpep16;;
+              *tp16*) M_TAG=tp16;;
+              *) M_TAG=dist;;
+            esac
+            JOB_TAG="rf-${M_TAG}"
+          else
+            TEST_CMDS="echo INTERFACE_BACKENDS=\${INTERFACE_BACKENDS}; "
+            for gpu_num in 1 2 4 8; do
+              N=$(( ACTUAL_GPU / gpu_num ))
+              [ $N -lt 1 ] && continue
+              if [ $N -eq 1 ]; then
+                TEST_CMDS+="(pytest ${TEST_FILE} -m \"gpu_num_${gpu_num}\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+              else
+                TEST_CMDS+="(pytest ${TEST_FILE} -m \"gpu_num_${gpu_num}\" -n ${N} --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+              fi
+            done
+            REMOTE_CMD="${PIP_SETUP} ${TEST_CMDS}"
+            case "${BACKEND}" in turbomind) B_TAG=tm;; pytorch) B_TAG=pt;; *) B_TAG="${BACKEND}";; esac
+            JOB_TAG="rf-${B_TAG}"
+          fi
 
-          # ============================================================
-          # Submit rjob
-          # ============================================================
           GITHUB_RUN_ID="${{ github.run_id }}"
           make_rjob_name() {
             local tag="$1"
             local suffix="${GITHUB_RUN_ID: -6}$(printf '%04d' $((RANDOM % 10000)))"
             local name="ete-${tag}-${suffix}"
             name=$(echo "${name}" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9-]/-/g' -e 's/--*/-/g' -e 's/^-*//' -e 's/-*$//')
-            local max_len=49  # kubebrain webhook: job name must be < 50 chars
+            local max_len=49
             if [ ${#name} -gt ${max_len} ]; then
               local prefix_max=$((max_len - ${#suffix} - 1))
               local prefix="ete-${tag}"
@@ -1190,7 +895,7 @@ jobs:
             fi
             echo "${name}"
           }
-          JOB_NAME=$(make_rjob_name "rf-${PRESET}")
+          JOB_NAME=$(make_rjob_name "${JOB_TAG}")
 
           RJOB_CMD="rjob submit \
             --name=${JOB_NAME} \
@@ -1200,16 +905,16 @@ jobs:
             --private-machine=group \
             --group=${{ env.RJOB_GROUP }} \
             --gpu=${RJOB_GPU} \
-            --cpu=${CPU} \
+            --cpu=${CPU_PER_NODE} \
             --memory=${MEMORY_MB} \
             --image=${DOCKER_IMAGE} \
             ${COMMON_ENV_VARS} \
-            ${SLEEP_WAKEUP_EXTRA_ENV} \
+            ${RESTFUL_EXTRA_ENV} \
             ${PROXY_EXTRA_ENV} \
             ${COMMON_MOUNTS} \
             ${HOST_NETWORK} \
             ${RJOB_PARALLEL} \
-            -- bash -exc '${PROXY_REMOTE_EXPORTS}${DIST_ENV_SETUP}${PIP_SETUP}${RUN_CMD}'"
+            -- bash -exc '${REMOTE_CMD}'"
 
           echo "=== Executing ===" && echo "$RJOB_CMD" | sed 's/  */ \\\n  /g' && echo "================="
           eval "$RJOB_CMD"
