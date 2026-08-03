@@ -715,15 +715,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Concurrent: backend × gpu_num_1..8 via test_restful_interface_llm.py
+        # job_kind 维度防止 include 把 distributed 合并进 concurrent pytorch（GHA include 同 backend 会覆盖）
         backend: ${{ fromJSON(inputs.backend || '["turbomind", "pytorch"]')}}
-        # Distributed 16-GPU (8×2): same entrypoint, tools-style distributed markers
+        job_kind: [concurrent]
         include:
           - backend: pytorch
+            job_kind: distributed_tp16
             gpu: 8
             nodes: 2
             marker: gpu_num_distributed_tp16
           - backend: pytorch
+            job_kind: distributed_dpep16
             gpu: 8
             nodes: 2
             marker: gpu_num_distributed_dpep16
