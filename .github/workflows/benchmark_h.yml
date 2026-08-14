@@ -37,7 +37,7 @@ on:
         required: false
         description: 'Docker image for rjob submission'
         type: string
-        default: 'registry.h.pjlab.org.cn/ailab-puyu-puyu_gpu/lmdeploy-dev:bump-v0.12.1-cu12.8'
+        default: 'registry.h.pjlab.org.cn/ailab-puyu-puyu_gpu/lmdeploy-dev:main-03153c6-cu13.0'
       test_env:
         required: false
         description: 'Test environment config: h, h800, 3090, 5080, ascend'
@@ -58,11 +58,23 @@ on:
         description: 'Optional transformers version override (e.g. 4.57.6). Empty means use image default'
         type: string
         default: ''
+      rjob_group:
+        required: false
+        description: 'Optional rjob partition/group; namespace is derived (e.g. llmrazor_gpu → ailab-llmrazor, updatedriver → ailab-zskj)'
+        type: choice
+        options:
+          - llmrazor_gpu
+          - llmeval_gpu
+          - opencompass_gpu
+          - evalservice_gpu
+          - updatedriver
+        default: 'llmrazor_gpu'
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+  OUTPUT_FOLDER: cuda13.0_dist_${{ github.run_id }}
   WORK_DIR: ${{ inputs.work_dir || '/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/lmdeploy_spec_new' }}
-  DOCKER_IMAGE: ${{ inputs.docker_image || 'registry.h.pjlab.org.cn/ailab-puyu-puyu_gpu/lmdeploy-dev:bump-v0.12.1-cu12.8' }}
+  DOCKER_IMAGE: ${{ inputs.docker_image || 'registry.h.pjlab.org.cn/ailab-puyu-puyu_gpu/lmdeploy-dev:main-03153c6-cu13.0' }}
   TEST_ENV: ${{ inputs.test_env || 'h' }}
   GPU_PER_NODE: ${{ inputs.gpu_per_node || '8' }}
   RUN_ID: ${{ inputs.repo_ref }}_${{ github.run_id }}
@@ -70,18 +82,20 @@ env:
   ALLURE_REPORT_DIR: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/benchmark_report/allure_report/${{ inputs.repo_ref }}_${{ github.run_id }}
   USE_WHL: ${{ inputs.use_whl || 'false' }}
   TRANSFORMERS_VERSION: ${{ inputs.transformers_version || '' }}
+  RJOB_GROUP: ${{ inputs.rjob_group || 'llmrazor_gpu' }}
+  RJOB_NAMESPACE: ${{ (inputs.rjob_group || 'llmrazor_gpu') == 'updatedriver' && 'ailab-zskj' || ((inputs.rjob_group || 'llmrazor_gpu') == 'llmeval_gpu' && 'ailab-llmeval' || ((inputs.rjob_group || 'llmrazor_gpu') == 'evalservice_gpu' && 'ailab-evalservice' || ((inputs.rjob_group || 'llmrazor_gpu') == 'opencompass_gpu' && 'ailab-opencompass' || 'ailab-llmrazor'))) }}
 
 jobs:
   linux-build:
     if: ${{!cancelled() && inputs.use_whl && !inputs.offline_mode}}
     strategy:
       matrix:
-        pyver: [py310]
+        pyver: [py312]
     runs-on: ubuntu-latest
     env:
       PYTHON_VERSION: ${{ matrix.pyver }}
       PLAT_NAME: manylinux2014_x86_64
-      DOCKER_TAG: cuda12.8
+      DOCKER_TAG: cuda13.0
     steps:
       - name: Free disk space
         uses: jlumbroso/free-disk-space@main
@@ -126,7 +140,7 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: my-artifact-${{ github.run_id }}-py310
+          name: my-artifact-${{ github.run_id }}-py312
       - name: Copy Artifacts to WORK_DIR
         run: rm ${{env.WORK_DIR}}/lmdeploy-*.whl -f && cp lmdeploy-*.whl ${{env.WORK_DIR}}
 
@@ -227,14 +241,11 @@ jobs:
           fi
 
           PIP_SETUP="cd ${WORK_DIR}; \
-            pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/fast_hadamard_transform-1.1.0+cu12torch2.10cxx11abiTRUE-cp312-cp312-linux_x86_64.whl; \
             ${WHL_INSTALL}\
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
             pip install -r requirements/test.txt --no-cache-dir; \
             ${TRANSFORMERS_PIP}\
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/datasets-4.7.0-py3-none-any.whl; \
-            pip install --force-reinstall --no-cache-dir nvidia-nccl-cu12==2.29.2; \
-            python -c \"import importlib.metadata as md; assert md.version(\\\"nvidia-nccl-cu12\\\")==\\\"2.29.2\\\", md.version(\\\"nvidia-nccl-cu12\\\")\"; \
             mkdir -p ${ALLURE_REPORT_DIR};"
 
           # ============================================================
@@ -297,12 +308,14 @@ jobs:
             echo "Marker: ${MARKER}"
             echo "Pytest command: ${PYTEST_CMD}"
 
-            # Build full rjob command as string and eval (same pattern as submit_oc.sh)
+            # Build full rjob command as string and eval (same pattern as submit_oc.sh / daily_ete_test_h)
             RJOB_CMD="rjob submit \
               --name=${JOB_NAME} \
-              --charged-group=opencompass_gpu \
+              --task_name=t0 \
+              --namespace=${{ env.RJOB_NAMESPACE }} \
+              --charged-group=${{ env.RJOB_GROUP }} \
               --private-machine=group \
-              --group=opencompass_gpu \
+              --group=${{ env.RJOB_GROUP }} \
               --gpu=${ACTUAL_GPU} \
               --cpu=${CPU_PER_NODE} \
               --memory=${MEMORY_MB} \
@@ -313,7 +326,7 @@ jobs:
               --host-network=False \
               -- bash -exc '${PIP_SETUP} ${PYTEST_CMD}'"
 
-            echo "=== Executing ===" && echo "$RJOB_CMD" && echo "================="
+            echo "=== Executing ===" && echo "$RJOB_CMD" | sed 's/  */ \\\n  /g' && echo "================="
             eval "$RJOB_CMD"
 
             echo "=== Submitted: ${JOB_NAME} ==="
@@ -331,4 +344,6 @@ jobs:
           echo "Run ID: ${{ env.RUN_ID }}"
           echo "Docker image: ${{ env.DOCKER_IMAGE }}"
           echo "Test env: ${{ env.TEST_ENV }}"
+          echo "rjob group: ${{ env.RJOB_GROUP }}"
+          echo "rjob namespace: ${{ env.RJOB_NAMESPACE }}"
           echo "====================================="
