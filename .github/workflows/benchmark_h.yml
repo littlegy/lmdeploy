@@ -134,7 +134,7 @@ jobs:
   download_pkgs:
     needs: linux-build
     if: ${{!cancelled() && inputs.use_whl && !inputs.offline_mode}}
-    runs-on: [self-hosted, h-191]
+    runs-on: [self-hosted, h-razor]
     timeout-minutes: 50
     steps:
       - name: Download Artifacts
@@ -148,7 +148,7 @@ jobs:
   benchmark_submit:
     if: ${{ !cancelled() }}
     needs: download_pkgs
-    runs-on: [self-hosted, h-191]
+    runs-on: [self-hosted, h-razor]
     timeout-minutes: 30
     strategy:
       fail-fast: false
