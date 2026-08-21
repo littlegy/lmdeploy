@@ -84,6 +84,7 @@ env:
   TRANSFORMERS_VERSION: ${{ inputs.transformers_version || '' }}
   RJOB_GROUP: ${{ inputs.rjob_group || 'llmrazor_gpu' }}
   RJOB_NAMESPACE: ${{ (inputs.rjob_group || 'llmrazor_gpu') == 'updatedriver' && 'ailab-zskj' || ((inputs.rjob_group || 'llmrazor_gpu') == 'llmeval_gpu' && 'ailab-llmeval' || ((inputs.rjob_group || 'llmrazor_gpu') == 'evalservice_gpu' && 'ailab-evalservice' || ((inputs.rjob_group || 'llmrazor_gpu') == 'opencompass_gpu' && 'ailab-opencompass' || 'ailab-llmrazor'))) }}
+  TILE_KERNELS_WHEEL: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/deps_pkg/wheels/cp312-torch2.12-cu130-abiTRUE-sm90/tile_kernels-0.0.0-py3-none-any.whl
 
 jobs:
   linux-build:
@@ -242,6 +243,8 @@ jobs:
 
           PIP_SETUP="cd ${WORK_DIR}; \
             ${WHL_INSTALL}\
+            pip install ${{ env.TILE_KERNELS_WHEEL }} --no-cache-dir --no-deps; \
+            pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_rerunfailures-16.5-py3-none-any.whl --no-cache-dir --no-deps; \
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
             pip install -r requirements/test.txt --no-cache-dir; \
             ${TRANSFORMERS_PIP}\
