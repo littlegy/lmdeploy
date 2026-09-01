@@ -89,6 +89,11 @@ on:
           - evalservice_gpu
           - updatedriver
         default: 'llmrazor_gpu'
+      rjob_charged_group:
+        required: false
+        description: 'rjob --charged-group (billing pool, e.g. llmrazor_gpu_pool). Empty falls back to rjob_group.'
+        type: string
+        default: ''
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
@@ -106,8 +111,8 @@ env:
   TRANSFORMERS_VERSION: ${{ inputs.transformers_version || '' }}
   COV_PARAM: --cov /opt/py3/lib/python3.10/site-packages/lmdeploy
   RJOB_GROUP: ${{ inputs.rjob_group || 'llmrazor_gpu' }}
+  RJOB_CHARGED_GROUP: ${{ inputs.rjob_charged_group || inputs.rjob_group || 'llmrazor_gpu' }}
   RJOB_NAMESPACE: ${{ (inputs.rjob_group || 'llmrazor_gpu') == 'updatedriver' && 'ailab-zskj' || ((inputs.rjob_group || 'llmrazor_gpu') == 'llmeval_gpu' && 'ailab-llmeval' || ((inputs.rjob_group || 'llmrazor_gpu') == 'evalservice_gpu' && 'ailab-evalservice' || ((inputs.rjob_group || 'llmrazor_gpu') == 'opencompass_gpu' && 'ailab-opencompass' || 'ailab-llmrazor'))) }}
-  TILE_KERNELS_WHEEL: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/deps_pkg/wheels/cp312-torch2.12-cu130-abiTRUE-sm90/tile_kernels-0.0.0-py3-none-any.whl
 
 jobs:
   linux-build:
@@ -267,7 +272,6 @@ jobs:
             pip install auto_gptq matplotlib attrdict --no-cache-dir; \
             pip install -r requirements/lite.txt --no-cache-dir; \
             ${WHL_INSTALL}\
-            pip install ${{ env.TILE_KERNELS_WHEEL }} --no-cache-dir --no-deps; \
             pip install pytest --no-cache-dir; \
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_rerunfailures-16.5-py3-none-any.whl --no-cache-dir --no-deps; \
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
@@ -319,7 +323,7 @@ jobs:
             --name=${JOB_NAME} \
             --task_name=t0 \
             --namespace=${{ env.RJOB_NAMESPACE }} \
-            --charged-group=${{ env.RJOB_GROUP }} \
+            --charged-group=${{ env.RJOB_CHARGED_GROUP }} \
             --private-machine=group \
             --group=${{ env.RJOB_GROUP }} \
             --gpu=${ACTUAL_GPU} \
@@ -467,7 +471,6 @@ jobs:
 
           PIP_SETUP="cd ${WORK_DIR}; \
             ${WHL_INSTALL}\
-            pip install ${{ env.TILE_KERNELS_WHEEL }} --no-cache-dir --no-deps; \
             pip install pytest --no-cache-dir; \
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_rerunfailures-16.5-py3-none-any.whl --no-cache-dir --no-deps; \
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
@@ -563,7 +566,7 @@ jobs:
             --name=${JOB_NAME} \
             --task_name=t0 \
             --namespace=${{ env.RJOB_NAMESPACE }} \
-            --charged-group=${{ env.RJOB_GROUP }} \
+            --charged-group=${{ env.RJOB_CHARGED_GROUP }} \
             --private-machine=group \
             --group=${{ env.RJOB_GROUP }} \
             --gpu=${RJOB_GPU} \
@@ -648,7 +651,6 @@ jobs:
 
           PIP_SETUP="cd ${WORK_DIR}; \
             ${WHL_INSTALL}\
-            pip install ${{ env.TILE_KERNELS_WHEEL }} --no-cache-dir --no-deps; \
             pip install pytest --no-cache-dir; \
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_rerunfailures-16.5-py3-none-any.whl --no-cache-dir --no-deps; \
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
@@ -703,7 +705,7 @@ jobs:
             --name=${JOB_NAME} \
             --task_name=t0 \
             --namespace=${{ env.RJOB_NAMESPACE }} \
-            --charged-group=${{ env.RJOB_GROUP }} \
+            --charged-group=${{ env.RJOB_CHARGED_GROUP }} \
             --private-machine=group \
             --group=${{ env.RJOB_GROUP }} \
             --gpu=${ACTUAL_GPU} \
@@ -866,7 +868,6 @@ jobs:
 
           PIP_SETUP="cd ${WORK_DIR}; \
             ${WHL_INSTALL}\
-            pip install ${{ env.TILE_KERNELS_WHEEL }} --no-cache-dir --no-deps; \
             pip install pytest --no-cache-dir; \
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_rerunfailures-16.5-py3-none-any.whl --no-cache-dir --no-deps; \
             pip install /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/pytest_assume-2.4.3-py3-none-any.whl; \
@@ -938,7 +939,7 @@ jobs:
             --name=${JOB_NAME} \
             --task_name=t0 \
             --namespace=${{ env.RJOB_NAMESPACE }} \
-            --charged-group=${{ env.RJOB_GROUP }} \
+            --charged-group=${{ env.RJOB_CHARGED_GROUP }} \
             --private-machine=group \
             --group=${{ env.RJOB_GROUP }} \
             --gpu=${RJOB_GPU} \
