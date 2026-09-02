@@ -20,12 +20,12 @@ on:
         required: true
         description: 'Set backend filter. Default is "["turbomind", "pytorch"]"'
         type: string
-        default: "['turbomind', 'pytorch']"
+        default: '["turbomind", "pytorch"]'
       model:
         required: true
         description: 'Set testcase module filter: llm, mllm. Default contains all models'
         type: string
-        default: "['llm','mllm']"
+        default: '["llm", "mllm"]'
       function:
         required: true
         description: 'Set testcase function filter: chat, restful, pipeline, prefix_cache. Default contains all functions'
@@ -45,7 +45,7 @@ on:
         required: true
         description: 'regression functions'
         type: string
-        default: "['quant', 'tools','pipeline','restful']"
+        default: '["quant", "tools", "pipeline", "restful"]'
       docker_image:
         required: false
         description: 'Docker image for rjob submission'
@@ -222,7 +222,7 @@ jobs:
           # ============================================================
           # Parse backends
           # ============================================================
-          BACKENDS=$(echo "${BACKENDS_JSON}" | tr -d "[]'" | tr ',' ' ')
+          BACKENDS=$(echo "${BACKENDS_JSON}" | tr -d '[]"' | tr -d "'" | tr ',' ' ')
           HAS_TURBOMIND=false
           HAS_PYTORCH=false
           for b in $BACKENDS; do
@@ -386,7 +386,7 @@ jobs:
           set -e
 
           # Skip matrix combinations not in backend filter (include may add extra backends)
-          BACKENDS=$(echo "${BACKENDS_JSON}" | tr -d "[]'" | tr ',' ' ')
+          BACKENDS=$(echo "${BACKENDS_JSON}" | tr -d '[]"' | tr -d "'" | tr ',' ' ')
           SKIP=true
           for b in $BACKENDS; do
             b=$(echo "$b" | tr -d ' ')
@@ -765,7 +765,7 @@ jobs:
           set -e
 
           # include 无条件追加；backend 不在入参时跳过
-          BACKENDS=$(echo "${BACKENDS_JSON}" | tr -d "[]'" | tr ',' ' ')
+          BACKENDS=$(echo "${BACKENDS_JSON}" | tr -d '[]"' | tr -d "'" | tr ',' ' ')
           SKIP=true
           for b in $BACKENDS; do
             b=$(echo "$b" | tr -d ' ')
