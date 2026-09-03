@@ -272,7 +272,7 @@ jobs:
           fi
 
           PIP_SETUP="cd ${WORK_DIR}; \
-            pip install auto_gptq matplotlib attrdict --no-cache-dir; \
+            pip install matplotlib attrdict --no-cache-dir; \
             pip install -r requirements/lite.txt --no-cache-dir; \
             ${WHL_INSTALL}\
             pip install pytest --no-cache-dir; \
