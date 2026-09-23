@@ -83,14 +83,13 @@ on:
         default: ''
       rjob_group:
         required: false
-        description: 'Optional rjob partition/group; namespace is derived (e.g. llmrazor_gpu → ailab-llmrazor, updatedriver → ailab-zskj)'
+        description: 'Optional rjob partition/group; namespace is derived (e.g. llmrazor_gpu → ailab-llmrazor, lmdeploy_gpu → ailab-lmdeploy)'
         type: choice
         options:
           - llmrazor_gpu
           - llmeval_gpu
-          - opencompass_gpu
-          - evalservice_gpu
-          - updatedriver
+          - lmdeploy_gpu_pool
+          - lmdeploy_gpu
         default: 'llmrazor_gpu'
       rjob_charged_group:
         required: false
@@ -115,7 +114,7 @@ env:
   COV_PARAM: --cov /opt/py3/lib/python3.10/site-packages/lmdeploy
   RJOB_GROUP: ${{ inputs.rjob_group || 'llmrazor_gpu' }}
   RJOB_CHARGED_GROUP: ${{ inputs.rjob_charged_group || inputs.rjob_group || 'llmrazor_gpu' }}
-  RJOB_NAMESPACE: ${{ (inputs.rjob_group || 'llmrazor_gpu') == 'updatedriver' && 'ailab-zskj' || ((inputs.rjob_group || 'llmrazor_gpu') == 'llmeval_gpu' && 'ailab-llmeval' || ((inputs.rjob_group || 'llmrazor_gpu') == 'evalservice_gpu' && 'ailab-evalservice' || ((inputs.rjob_group || 'llmrazor_gpu') == 'opencompass_gpu' && 'ailab-opencompass' || 'ailab-llmrazor'))) }}
+  RJOB_NAMESPACE: ${{ (inputs.rjob_group || 'llmrazor_gpu') == 'llmeval_gpu' && 'ailab-llmeval' || (((inputs.rjob_group || 'llmrazor_gpu') == 'lmdeploy_gpu' || (inputs.rjob_group || 'llmrazor_gpu') == 'lmdeploy_gpu_pool') && 'ailab-lmdeploy' || 'ailab-llmrazor') }}
 
 jobs:
   linux-build:
@@ -365,12 +364,6 @@ jobs:
           - backend: pytorch
             model: mllm
             function: chat
-          - backend: turbomind
-            model: mllm
-            function: prefix_cache
-          - backend: pytorch
-            model: mllm
-            function: prefix_cache
         include:
           - backend: turbomind
             model: llm
@@ -518,17 +511,15 @@ jobs:
             TEST_FILE="autotest/tools/restful/test_restful_chat_hf_${BACKEND}_${MODEL}.py"
             PYTEST_K_EXTRA="not modelscope and not prefix_cache"
           elif [ "$FUNC" == "prefix_cache" ]; then
-            if [ "$MODEL" != "llm" ]; then
-              echo "prefix_cache only supports llm, skipping..."
-              exit 0
-            fi
             TEST_FILE=""
+            PREFIX_FILES="autotest/tools/restful/test_restful_chat_hf_${BACKEND}_${MODEL}.py"
+            if [ "$MODEL" == "llm" ]; then
+              PREFIX_FILES="autotest/tools/pipeline/test_pipeline_chat_${BACKEND}_llm.py ${PREFIX_FILES}"
+            fi
             for tp_size in 1 2 4 8; do
               N=$(( ACTUAL_GPU / tp_size ))
               [ $N -lt 1 ] && continue
-              for TEST_FILE in \
-                "autotest/tools/pipeline/test_pipeline_chat_${BACKEND}_llm.py" \
-                "autotest/tools/restful/test_restful_chat_hf_${BACKEND}_llm.py"; do
+              for TEST_FILE in ${PREFIX_FILES}; do
                 if [ $N -eq 1 ]; then
                   TEST_CMDS+="(pytest ${TEST_FILE} -m \"tp${tp_size} and not pr_test\" -k \"prefix_cache\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
                 else
