@@ -60,15 +60,19 @@ on:
         default: ''
       rjob_group:
         required: false
-        description: 'Optional rjob partition/group; namespace is derived (e.g. llmrazor_gpu → ailab-llmrazor, updatedriver → ailab-zskj)'
+        description: 'Optional rjob partition/group; namespace is derived (e.g. llmrazor_gpu → ailab-llmrazor, lmdeploy_gpu → ailab-lmdeploy)'
         type: choice
         options:
           - llmrazor_gpu
           - llmeval_gpu
-          - opencompass_gpu
-          - evalservice_gpu
-          - updatedriver
+          - lmdeploy_gpu_pool
+          - lmdeploy_gpu
         default: 'llmrazor_gpu'
+      rjob_charged_group:
+        required: false
+        description: 'rjob --charged-group (billing pool, e.g. llmrazor_gpu_pool). Empty falls back to rjob_group.'
+        type: string
+        default: ''
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
@@ -83,7 +87,8 @@ env:
   USE_WHL: ${{ inputs.use_whl || 'false' }}
   TRANSFORMERS_VERSION: ${{ inputs.transformers_version || '' }}
   RJOB_GROUP: ${{ inputs.rjob_group || 'llmrazor_gpu' }}
-  RJOB_NAMESPACE: ${{ (inputs.rjob_group || 'llmrazor_gpu') == 'updatedriver' && 'ailab-zskj' || ((inputs.rjob_group || 'llmrazor_gpu') == 'llmeval_gpu' && 'ailab-llmeval' || ((inputs.rjob_group || 'llmrazor_gpu') == 'evalservice_gpu' && 'ailab-evalservice' || ((inputs.rjob_group || 'llmrazor_gpu') == 'opencompass_gpu' && 'ailab-opencompass' || 'ailab-llmrazor'))) }}
+  RJOB_CHARGED_GROUP: ${{ inputs.rjob_charged_group || inputs.rjob_group || 'llmrazor_gpu' }}
+  RJOB_NAMESPACE: ${{ (inputs.rjob_group || 'llmrazor_gpu') == 'llmeval_gpu' && 'ailab-llmeval' || (((inputs.rjob_group || 'llmrazor_gpu') == 'lmdeploy_gpu' || (inputs.rjob_group || 'llmrazor_gpu') == 'lmdeploy_gpu_pool') && 'ailab-lmdeploy' || 'ailab-llmrazor') }}
   TILE_KERNELS_WHEEL: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/deps_pkg/wheels/cp312-torch2.12-cu130-abiTRUE-sm90/tile_kernels-0.0.0-py3-none-any.whl
 
 jobs:
@@ -288,7 +293,7 @@ jobs:
             # - Both backends selected: no backend filter
             # - Only turbomind: add "and turbomind"
             # - Only pytorch: add "and pytorch"
-            BASE_MARKER="gpu_num_${gpu_num} and not pr_test and not function"
+            BASE_MARKER="tp${gpu_num} and not pr_test and not function"
             if $HAS_TURBOMIND && $HAS_PYTORCH; then
               MARKER="${BASE_MARKER}"
             elif $HAS_TURBOMIND && ! $HAS_PYTORCH; then
@@ -316,7 +321,7 @@ jobs:
               --name=${JOB_NAME} \
               --task_name=t0 \
               --namespace=${{ env.RJOB_NAMESPACE }} \
-              --charged-group=${{ env.RJOB_GROUP }} \
+              --charged-group=${{ env.RJOB_CHARGED_GROUP }} \
               --private-machine=group \
               --group=${{ env.RJOB_GROUP }} \
               --gpu=${ACTUAL_GPU} \
@@ -348,5 +353,6 @@ jobs:
           echo "Docker image: ${{ env.DOCKER_IMAGE }}"
           echo "Test env: ${{ env.TEST_ENV }}"
           echo "rjob group: ${{ env.RJOB_GROUP }}"
+          echo "rjob charged-group: ${{ env.RJOB_CHARGED_GROUP }}"
           echo "rjob namespace: ${{ env.RJOB_NAMESPACE }}"
           echo "====================================="
