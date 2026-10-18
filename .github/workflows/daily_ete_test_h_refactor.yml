@@ -63,7 +63,7 @@ on:
         default: '8'
       interface_tp_nums:
         required: false
-        description: 'Which layout tp markers to run (tp1,tp2,tp4,tp8). "8" = only tp8; "1" = only tp1; "1,2,4,8" = all. Also gates dp4ep8tp2 (needs 8).'
+        description: 'Which layout tp markers to run (tp1,tp2,tp4,tp8). "8" = only tp8; "1" = only tp1; "1,2,4,8" = all. Also gates dp4ep8tp2 / dp8ep8 (needs 8 GPUs).'
         type: string
         default: '1,2,4,8'
       interface_run_distributed:
@@ -409,7 +409,7 @@ jobs:
           LLM_DIST_DIR="/mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/work_dir/llm_distributed"
           DIST_PIP=""
           TOOLS_PROXY_EXTRA_ENV=""
-          RUN_DP4EP8TP2=false
+          RUN_8GPU_DIST_LAYOUTS=false
 
           # 逻辑 GPU 数（pytest 并行度仍按此计算）；restful 与 submit_interface_tests.sh 对齐：
           # - 每卡内存 64000MB（大模型 / level-2 update_weights 预留）
@@ -424,7 +424,7 @@ jobs:
               RJOB_GPU=$(( ACTUAL_GPU + 1 ))
               TOOLS_RESTFUL_EXTRA_ENV=" -e DISTRIBUTED_JOB=true -e TOTAL_GPU_COUNT=${ACTUAL_GPU} -e LMDEPLOY_UPDATE_WEIGHTS_CUDA_DEVICE=${ACTUAL_GPU}"
             else
-              if [ "${BACKEND}" = "pytorch" ] && [ "${FUNC}" = "restful" ] && [ "${MODEL}" = "llm" ]; then
+              if [ "${BACKEND}" = "pytorch" ] && [ "${MODEL}" = "llm" ] && { [ "${FUNC}" = "restful" ] || [ "${FUNC}" = "prefix_cache" ]; }; then
                 DIST_PIP="pip install -e ${LLM_DIST_DIR} --no-cache-dir; "
               fi
             fi
@@ -432,10 +432,10 @@ jobs:
           if [ "${ACTUAL_GPU}" -ge 8 ]; then
             for tp_size in $(echo "${INTERFACE_TP_NUMS}" | tr ',' ' '); do
               tp_size=$(echo "${tp_size}" | tr -d ' ')
-              [ "${tp_size}" = "8" ] && RUN_DP4EP8TP2=true && break
+              [ "${tp_size}" = "8" ] && RUN_8GPU_DIST_LAYOUTS=true && break
             done
           fi
-          if $RUN_DP4EP8TP2 && [ "${BACKEND}" = "pytorch" ] && [ "${FUNC}" = "restful" ] && [ "${MODEL}" = "llm" ]; then
+          if $RUN_8GPU_DIST_LAYOUTS && [ "${BACKEND}" = "pytorch" ] && [ "${MODEL}" = "llm" ] && { [ "${FUNC}" = "restful" ] || [ "${FUNC}" = "prefix_cache" ]; }; then
             TOOLS_PROXY_EXTRA_ENV=" -e LMDEPLOY_PORT=8000 -e PROXY_PORT=8000"
           fi
           CPU_PER_NODE=$(( RJOB_GPU * 10 ))
@@ -527,6 +527,13 @@ jobs:
                 fi
               done
             done
+            if $RUN_8GPU_DIST_LAYOUTS && [ "${BACKEND}" = "pytorch" ] && [ "${MODEL}" = "llm" ] && [ "${ACTUAL_GPU}" -ge 8 ]; then
+              PREFIX_PYTORCH_LLM="autotest/tools/restful/test_restful_chat_hf_pytorch_llm.py"
+              DIST_PROXY_ENV="DISTRIBUTED_JOB=true TOTAL_GPU_COUNT=${ACTUAL_GPU} LMDEPLOY_PORT=8000 PROXY_PORT=8000 LMDEPLOY_DP_MASTER_ADDR=\${MASTER_ADDR:-127.0.0.1} LMDEPLOY_DP_MASTER_PORT=29555 DEEPEP_MAX_TOKENS_PER_RANK=256"
+              TEST_CMDS+="(${DIST_PROXY_ENV} pytest ${PREFIX_PYTORCH_LLM} -m \"dp4ep8tp2 and distributed and not pr_test\" -k \"prefix_cache\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+              TEST_CMDS+="(${DIST_PROXY_ENV} pytest ${PREFIX_PYTORCH_LLM} -m \"dp8ep8 and distributed and not pr_test\" -k \"prefix_cache and not mooncake-store\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+              TEST_CMDS+="(${DIST_PROXY_ENV} pytest ${PREFIX_PYTORCH_LLM} -m \"dp8ep8 and distributed and not pr_test\" -k \"prefix_cache and mooncake-store\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            fi
           elif [ "$FUNC" == "other" ]; then
             TEST_FILE=""
             TEST_CMDS+="(pytest autotest/toolchain --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
@@ -542,8 +549,11 @@ jobs:
                 TEST_CMDS+="(pytest ${TEST_FILE} -m \"tp${tp_size} and not pr_test\" -k \"${PYTEST_K_EXTRA}\" -n ${N} --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
               fi
             done
-            if $RUN_DP4EP8TP2 && [ "${BACKEND}" = "pytorch" ] && [ "${FUNC}" = "restful" ] && [ "${MODEL}" = "llm" ] && [ "${ACTUAL_GPU}" -ge 8 ]; then
-              TEST_CMDS+="(DISTRIBUTED_JOB=true TOTAL_GPU_COUNT=${ACTUAL_GPU} LMDEPLOY_PORT=8000 PROXY_PORT=8000 LMDEPLOY_DP_MASTER_ADDR=\${MASTER_ADDR:-127.0.0.1} LMDEPLOY_DP_MASTER_PORT=29555 DEEPEP_MAX_TOKENS_PER_RANK=256 pytest ${TEST_FILE} -m \"dp4ep8tp2 and distributed and not pr_test\" -k \"${PYTEST_K_EXTRA}\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            if $RUN_8GPU_DIST_LAYOUTS && [ "${BACKEND}" = "pytorch" ] && [ "${FUNC}" = "restful" ] && [ "${MODEL}" = "llm" ] && [ "${ACTUAL_GPU}" -ge 8 ]; then
+              DIST_PROXY_ENV="DISTRIBUTED_JOB=true TOTAL_GPU_COUNT=${ACTUAL_GPU} LMDEPLOY_PORT=8000 PROXY_PORT=8000 LMDEPLOY_DP_MASTER_ADDR=\${MASTER_ADDR:-127.0.0.1} LMDEPLOY_DP_MASTER_PORT=29555 DEEPEP_MAX_TOKENS_PER_RANK=256"
+              TEST_CMDS+="(${DIST_PROXY_ENV} pytest ${TEST_FILE} -m \"dp4ep8tp2 and distributed and not pr_test\" -k \"${PYTEST_K_EXTRA}\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+              TEST_CMDS+="(${DIST_PROXY_ENV} pytest ${TEST_FILE} -m \"dp8ep8 and distributed and not pr_test\" -k \"not mooncake-store and ${PYTEST_K_EXTRA}\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+              TEST_CMDS+="(${DIST_PROXY_ENV} pytest ${TEST_FILE} -m \"dp8ep8 and distributed and not pr_test\" -k \"mooncake-store and ${PYTEST_K_EXTRA}\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
             fi
           fi
 
@@ -849,14 +859,14 @@ jobs:
             fi
             CPU_PER_NODE=$(( RJOB_GPU * 10 ))
             MEMORY_MB=$(( RJOB_GPU * MEMORY_PER_GPU_MB ))
-            RUN_DP4EP8TP2=false
+            RUN_8GPU_DIST_LAYOUTS=false
             if [ "${ACTUAL_GPU}" -ge 8 ]; then
               for tp_size in $(echo "${INTERFACE_TP_NUMS}" | tr ',' ' '); do
                 tp_size=$(echo "${tp_size}" | tr -d ' ')
-                [ "${tp_size}" = "8" ] && RUN_DP4EP8TP2=true && break
+                [ "${tp_size}" = "8" ] && RUN_8GPU_DIST_LAYOUTS=true && break
               done
             fi
-            if $RUN_DP4EP8TP2 && [ "${BACKEND}" = "pytorch" ]; then
+            if $RUN_8GPU_DIST_LAYOUTS && [ "${BACKEND}" = "pytorch" ]; then
               PROXY_EXTRA_ENV="-e LMDEPLOY_PORT=8000 -e PROXY_PORT=8000"
             fi
           fi
@@ -929,10 +939,13 @@ jobs:
                 TEST_CMDS+="(pytest ${TEST_FILE} -m \"tp${tp_size}\" -n ${N} --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
               fi
             done
-            # 单机 8 卡：dp4ep8tp2 与 tp8 同 job；仅当 INTERFACE_TP_NUMS 含 8 且 backend=pytorch
+            # 单机 8 卡：dp4ep8tp2 / dp8ep8 与 tp8 同 job；仅当 INTERFACE_TP_NUMS 含 8 且 backend=pytorch
             # DP>1 必须设 LMDEPLOY_DP_MASTER_*；单机无 MASTER_ADDR 则回落 127.0.0.1
-            if $RUN_DP4EP8TP2 && [ "${BACKEND}" = "pytorch" ] && [ "${ACTUAL_GPU}" -ge 8 ]; then
-              TEST_CMDS+="(DISTRIBUTED_JOB=true TOTAL_GPU_COUNT=${ACTUAL_GPU} LMDEPLOY_PORT=8000 PROXY_PORT=8000 LMDEPLOY_DP_MASTER_ADDR=\${MASTER_ADDR:-127.0.0.1} LMDEPLOY_DP_MASTER_PORT=29555 DEEPEP_MAX_TOKENS_PER_RANK=256 pytest ${TEST_FILE} -m \"dp4ep8tp2 and distributed\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            if $RUN_8GPU_DIST_LAYOUTS && [ "${BACKEND}" = "pytorch" ] && [ "${ACTUAL_GPU}" -ge 8 ]; then
+              DIST_PROXY_ENV="DISTRIBUTED_JOB=true TOTAL_GPU_COUNT=${ACTUAL_GPU} LMDEPLOY_PORT=8000 PROXY_PORT=8000 LMDEPLOY_DP_MASTER_ADDR=\${MASTER_ADDR:-127.0.0.1} LMDEPLOY_DP_MASTER_PORT=29555 DEEPEP_MAX_TOKENS_PER_RANK=256"
+              TEST_CMDS+="(${DIST_PROXY_ENV} pytest ${TEST_FILE} -m \"dp4ep8tp2 and distributed\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+              TEST_CMDS+="(${DIST_PROXY_ENV} pytest ${TEST_FILE} -m \"dp8ep8 and distributed\" -k \"not mooncake-store\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+              TEST_CMDS+="(${DIST_PROXY_ENV} pytest ${TEST_FILE} -m \"dp8ep8 and distributed\" -k \"mooncake-store\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
             fi
             REMOTE_CMD="${PIP_SETUP} ${TEST_CMDS}"
             case "${BACKEND}" in turbomind) B_TAG=tm;; pytorch) B_TAG=pt;; *) B_TAG="${BACKEND}";; esac
