@@ -71,6 +71,11 @@ on:
         description: 'If false, skip multi-node interface (tp16/dp16ep16). Independent of interface_tp_nums.'
         type: boolean
         default: true
+      interface_router_parity:
+        required: false
+        description: 'Force Qwen3.5-35B-A3B-FP8 tp1 router vs direct parity (pytorch concurrent only). Auto-runs when interface_tp_nums is only "1" or gpu_per_node is 1; set true to also run on multi-tp jobs (1,2,4,8).'
+        type: boolean
+        default: false
       work_dir:
         required: false
         description: 'Working directory for code repo (contains requirements/, autotest/, etc.)'
@@ -106,6 +111,7 @@ env:
   GPU_PER_NODE: ${{ inputs.gpu_per_node || '8' }}
   INTERFACE_TP_NUMS: ${{ inputs.interface_tp_nums || '1,2,4,8' }}
   INTERFACE_RUN_DISTRIBUTED: ${{ inputs.interface_run_distributed == false && 'false' || 'true' }}
+  INTERFACE_ROUTER_PARITY: ${{ inputs.interface_router_parity == true && 'true' || 'false' }}
   RUN_ID: ${{ inputs.repo_ref || 'main' }}_${{ github.run_id }}
   REPORT_DIR: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/test-reports/${{ inputs.repo_ref || 'main' }}_${{ github.run_id }}
   ALLURE_REPORT_DIR: /mnt/shared-storage-user/llmrazor-share/qa-llm-cicd/cicd-autotest/eval_resource/test-reports/allure_report/${{ inputs.repo_ref || 'main' }}_${{ github.run_id }}
@@ -782,6 +788,7 @@ jobs:
           BACKENDS_JSON: ${{ inputs.backend || '["turbomind", "pytorch"]' }}
           INTERFACE_TP_NUMS: ${{ env.INTERFACE_TP_NUMS }}
           INTERFACE_RUN_DISTRIBUTED: ${{ env.INTERFACE_RUN_DISTRIBUTED }}
+          INTERFACE_ROUTER_PARITY: ${{ env.INTERFACE_ROUTER_PARITY }}
         run: |
           set -e
 
@@ -946,6 +953,33 @@ jobs:
               TEST_CMDS+="(${DIST_PROXY_ENV} pytest ${TEST_FILE} -m \"dp4ep8tp2 and distributed\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
               TEST_CMDS+="(${DIST_PROXY_ENV} pytest ${TEST_FILE} -m \"dp8ep8 and distributed\" -k \"not mooncake-store\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
               TEST_CMDS+="(${DIST_PROXY_ENV} pytest ${TEST_FILE} -m \"dp8ep8 and distributed\" -k \"mooncake-store\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
+            fi
+            RUN_ROUTER_PARITY=false
+            if [ "${BACKEND}" = "pytorch" ]; then
+              HAS_TP1=false
+              ONLY_TP1=true
+              for tp_size in $(echo "${INTERFACE_TP_NUMS}" | tr ',' ' '); do
+                tp_size=$(echo "${tp_size}" | tr -d ' ')
+                [ -z "${tp_size}" ] && continue
+                if [ "${tp_size}" = "1" ]; then
+                  HAS_TP1=true
+                else
+                  ONLY_TP1=false
+                fi
+              done
+              AUTO_ROUTER_PARITY=false
+              if $ONLY_TP1 && $HAS_TP1; then
+                AUTO_ROUTER_PARITY=true
+              elif [ "${ACTUAL_GPU}" -eq 1 ] && $HAS_TP1; then
+                AUTO_ROUTER_PARITY=true
+              fi
+              if $HAS_TP1 && { $AUTO_ROUTER_PARITY || [ "${INTERFACE_ROUTER_PARITY}" = "true" ]; }; then
+                RUN_ROUTER_PARITY=true
+              fi
+            fi
+            if $RUN_ROUTER_PARITY; then
+              ROUTER_PARITY_FILE="autotest/interface/restful/test_restful_router_parity.py"
+              TEST_CMDS+="(pytest ${ROUTER_PARITY_FILE} -m \"tp1 and router_parity_job\" --alluredir=${ALLURE_REPORT_DIR} ${COV_PARAM} || true); "
             fi
             REMOTE_CMD="${PIP_SETUP} ${TEST_CMDS}"
             case "${BACKEND}" in turbomind) B_TAG=tm;; pytorch) B_TAG=pt;; *) B_TAG="${BACKEND}";; esac
