@@ -23,7 +23,9 @@ _ABORT_TIMEOUT = 60
 _SESSION_RETRY = 25
 _SESSION_RETRY_INTERVAL = 0.3
 _NONSTREAM_ABORT_LEAD_S = 2.0
+_STREAM_FIRST_CHUNK_TIMEOUT_S = 120
 _THREAD_JOIN_EXTRA_S = 30
+_TERMINAL_STREAM_FINISH = frozenset(('stop', 'length', 'tool_calls', 'error', 'abort'))
 _POST_ABORT_LOGPROBS_NUM = 10
 _MAX_LOG_TEXT = 2000
 _LOG_HOOK: Callable[[dict], None] | None = None
@@ -100,15 +102,33 @@ def _chat_non_stream(
     return resp
 
 
-def _consume_first_nonempty_sse_data_line(resp: requests.Response) -> None:
+def _stream_keepalive_kwargs() -> dict:
+    """Keep generation in flight until ``/abort_request`` (fast models /
+    MTP)."""
+    return {'ignore_eos': True, 'max_tokens': 4096}
+
+
+def _stream_finish_reason(chunk: dict) -> tuple[object, object]:
+    choices = chunk.get('choices') or []
+    choice_fr = choices[0].get('finish_reason') if choices and isinstance(choices[0], dict) else None
+    meta_fr = (chunk.get('meta_info') or {}).get('finish_reason')
+    return choice_fr, meta_fr
+
+
+def _stream_chunk_is_terminal(chunk: dict) -> bool:
+    choice_fr, meta_fr = _stream_finish_reason(chunk)
+    return choice_fr in _TERMINAL_STREAM_FINISH or meta_fr in _TERMINAL_STREAM_FINISH
+
+
+def _wait_first_stream_chunk_inflight(resp: requests.Response) -> None:
+    """First SSE data line must arrive before the stream ends."""
     idx = 0
     for raw in resp.iter_lines(decode_unicode=True):
         if not raw or not raw.startswith('data:'):
             continue
         chunk = raw[5:].strip()
         if chunk == '[DONE]':
-            _emit_log('stream_chunk_done_before_abort')
-            break
+            raise AssertionError('stream hit [DONE] before abort (generation already finished)')
         if not chunk:
             continue
         try:
@@ -117,15 +137,124 @@ def _consume_first_nonempty_sse_data_line(resp: requests.Response) -> None:
             _emit_log('stream_chunk_parse_error', raw_preview=_truncate_text(chunk))
             continue
         idx += 1
+        choice_fr, meta_fr = _stream_finish_reason(parsed)
         _emit_log('stream_chunk_before_abort',
                   chunk_index=idx,
                   chunk_preview=_truncate_text(chunk),
-                  finish_reason=(parsed.get('choices') or [{}])[0].get('finish_reason')
-                  if isinstance(parsed, dict) else None,
-                  meta_finish_reason=(parsed.get('meta_info') or {}).get('finish_reason')
-                  if isinstance(parsed, dict) else None)
+                  finish_reason=choice_fr,
+                  meta_finish_reason=meta_fr)
+        if _stream_chunk_is_terminal(parsed):
+            raise AssertionError(
+                f'stream already terminal before abort '
+                f'(choice_finish_reason={choice_fr!r}, meta_finish_reason={meta_fr!r})')
         return
-    assert False, 'expected at least one parsable SSE data line before abort'
+    raise AssertionError('expected at least one parsable SSE data line before abort')
+
+
+def _run_stream_abort_reader(
+        endpoint: str,
+        stream_payload: dict,
+        *,
+        first_chunk_evt: threading.Event,
+        abort_posted: threading.Event,
+        errors: list[BaseException],
+        verify_finish: bool,
+        abort_wait_timeout_message: str,
+) -> None:
+    resp = None
+    try:
+        resp = requests.post(
+            f'{BASE_URL}{endpoint}',
+            headers=JSON_HEADERS,
+            json=stream_payload,
+            stream=True,
+            timeout=_REQUEST_TIMEOUT,
+        )
+        resp.raise_for_status()
+        _wait_first_stream_chunk_inflight(resp)
+        first_chunk_evt.set()
+        if not abort_posted.wait(timeout=_ABORT_TIMEOUT):
+            raise AssertionError(abort_wait_timeout_message)
+        if verify_finish:
+            _verify_stream_abort_finish_reason(resp)
+    except BaseException as exc:
+        errors.append(exc)
+    finally:
+        if resp is not None:
+            resp.close()
+
+
+def _abort_stream_while_running(
+        *,
+        endpoint: str,
+        stream_payload: dict,
+        session_id: int,
+        verify_finish: bool = True,
+) -> None:
+    """Hold the HTTP stream open, abort after the first non-terminal chunk."""
+    first_chunk = threading.Event()
+    abort_posted = threading.Event()
+    errors: list[BaseException] = []
+
+    thread = threading.Thread(
+        target=_run_stream_abort_reader,
+        kwargs=dict(
+            endpoint=endpoint,
+            stream_payload=stream_payload,
+            first_chunk_evt=first_chunk,
+            abort_posted=abort_posted,
+            errors=errors,
+            verify_finish=verify_finish,
+            abort_wait_timeout_message='abort was not posted before stream reader timed out',
+        ),
+        daemon=True,
+    )
+    thread.start()
+    assert first_chunk.wait(timeout=_STREAM_FIRST_CHUNK_TIMEOUT_S), (
+        'timed out waiting for first in-flight stream chunk')
+    _post_abort_explicit_session_or_skip(session_id)
+    abort_posted.set()
+    thread.join(timeout=_REQUEST_TIMEOUT + _THREAD_JOIN_EXTRA_S)
+    assert not thread.is_alive(), 'stream abort reader thread did not finish'
+    if errors:
+        raise errors[0]
+
+
+def _abort_all_while_streams_running(streams: list[tuple[str, dict]]) -> None:
+    """``abort_all`` while every stream still has an in-flight session."""
+    if not streams:
+        return
+    first_chunks = [threading.Event() for _ in streams]
+    abort_posted = threading.Event()
+    errors: list[BaseException] = []
+
+    def reader(idx: int, endpoint: str, stream_payload: dict) -> None:
+        _run_stream_abort_reader(
+            endpoint,
+            stream_payload,
+            first_chunk_evt=first_chunks[idx],
+            abort_posted=abort_posted,
+            errors=errors,
+            verify_finish=True,
+            abort_wait_timeout_message='abort_all was not posted before stream reader timed out',
+        )
+
+    threads = [
+        threading.Thread(target=reader, args=(idx, endpoint, payload), daemon=True)
+        for idx, (endpoint, payload) in enumerate(streams)
+    ]
+    for thread in threads:
+        thread.start()
+    for idx, evt in enumerate(first_chunks):
+        assert evt.wait(timeout=_STREAM_FIRST_CHUNK_TIMEOUT_S), (
+            f'timed out waiting for in-flight stream chunk (stream {idx})')
+    _post_abort_all_or_skip()
+    abort_posted.set()
+    for thread in threads:
+        thread.join(timeout=_REQUEST_TIMEOUT + _THREAD_JOIN_EXTRA_S)
+        assert not thread.is_alive(), 'stream abort_all reader thread did not finish'
+    if errors:
+        raise errors[0]
 
 
 def _post_abort_explicit_session_or_skip(session_id: int) -> None:
@@ -337,27 +466,16 @@ class TestRestfulAbortRequest:
         stream_payload = {
             'model': model_name,
             'messages': [{'role': 'user', 'content': _long_user_prompt()}],
-            'max_tokens': 2048,
             'temperature': 0.3,
             'stream': True,
             'session_id': session_id,
+            **_stream_keepalive_kwargs(),
         }
-        resp = requests.post(
-            f'{BASE_URL}/v1/chat/completions',
-            headers=JSON_HEADERS,
-            json=stream_payload,
-            stream=True,
-            timeout=_REQUEST_TIMEOUT,
+        _abort_stream_while_running(
+            endpoint='/v1/chat/completions',
+            stream_payload=stream_payload,
+            session_id=session_id,
         )
-        resp.raise_for_status()
-
-        try:
-            _consume_first_nonempty_sse_data_line(resp)
-            _post_abort_explicit_session_or_skip(session_id)
-            _verify_stream_abort_finish_reason(resp)
-        finally:
-            resp.close()
-
         _assert_session_reusable_after_abort(model_name, session_id)
 
     def test_abort_running_stream_generate_request_returns_abort_finish_reason(self, backend, model_case):
@@ -366,27 +484,16 @@ class TestRestfulAbortRequest:
 
         stream_payload = {
             'prompt': _long_user_prompt(),
-            'max_tokens': 2048,
             'temperature': 0.3,
             'stream': True,
             'session_id': session_id,
+            **_stream_keepalive_kwargs(),
         }
-        resp = requests.post(
-            f'{BASE_URL}/generate',
-            headers=JSON_HEADERS,
-            json=stream_payload,
-            stream=True,
-            timeout=_REQUEST_TIMEOUT,
+        _abort_stream_while_running(
+            endpoint='/generate',
+            stream_payload=stream_payload,
+            session_id=session_id,
         )
-        resp.raise_for_status()
-
-        try:
-            _consume_first_nonempty_sse_data_line(resp)
-            _post_abort_explicit_session_or_skip(session_id)
-            _verify_stream_abort_finish_reason(resp)
-        finally:
-            resp.close()
-
         _assert_session_reusable_after_abort(model_name, session_id)
 
     def test_abort_running_stream_completions_request_returns_abort_finish_reason(self, backend, model_case):
@@ -396,27 +503,16 @@ class TestRestfulAbortRequest:
         stream_payload = {
             'model': model_name,
             'prompt': _long_user_prompt(),
-            'max_tokens': 2048,
             'temperature': 0.3,
             'stream': True,
             'session_id': session_id,
+            **_stream_keepalive_kwargs(),
         }
-        resp = requests.post(
-            f'{BASE_URL}/v1/completions',
-            headers=JSON_HEADERS,
-            json=stream_payload,
-            stream=True,
-            timeout=_REQUEST_TIMEOUT,
+        _abort_stream_while_running(
+            endpoint='/v1/completions',
+            stream_payload=stream_payload,
+            session_id=session_id,
         )
-        resp.raise_for_status()
-
-        try:
-            _consume_first_nonempty_sse_data_line(resp)
-            _post_abort_explicit_session_or_skip(session_id)
-            _verify_stream_abort_finish_reason(resp)
-        finally:
-            resp.close()
-
         _assert_session_reusable_after_abort(model_name, session_id)
 
     def test_abort_running_non_stream_chat_request_returns_abort_finish_reason(self, backend, model_case):
@@ -543,35 +639,19 @@ class TestRestfulAbortRequest:
         _, model_name = get_client_and_model(BASE_URL)
 
         sessions = [5_000_000 + random.randint(0, 99_999) for _ in range(3)]
-        responses = []
-
+        streams = []
         for session_id in sessions:
             stream_payload = {
                 'model': model_name,
                 'messages': [{'role': 'user', 'content': _long_user_prompt()}],
-                'max_tokens': 2048,
                 'temperature': 0.3,
                 'stream': True,
                 'session_id': session_id,
+                **_stream_keepalive_kwargs(),
             }
-            resp = requests.post(
-                f'{BASE_URL}/v1/chat/completions',
-                headers=JSON_HEADERS,
-                json=stream_payload,
-                stream=True,
-                timeout=_REQUEST_TIMEOUT,
-            )
-            resp.raise_for_status()
-            responses.append(resp)
-            _consume_first_nonempty_sse_data_line(resp)
+            streams.append(('/v1/chat/completions', stream_payload))
 
-        _post_abort_all_or_skip()
-
-        for i, resp in enumerate(responses):
-            try:
-                _verify_stream_abort_finish_reason(resp)
-            finally:
-                resp.close()
+        _abort_all_while_streams_running(streams)
 
         for session_id in sessions:
             _assert_session_reusable_after_abort(model_name, session_id)
@@ -616,25 +696,17 @@ class TestRestfulAbortRequest:
         stream_payload = {
             'model': model_name,
             'messages': [{'role': 'user', 'content': _long_user_prompt()}],
-            'max_tokens': 2048,
             'temperature': 0.3,
             'stream': True,
             'session_id': session_id,
+            **_stream_keepalive_kwargs(),
         }
-        resp = requests.post(
-            f'{BASE_URL}/v1/chat/completions',
-            headers=JSON_HEADERS,
-            json=stream_payload,
-            stream=True,
-            timeout=_REQUEST_TIMEOUT,
+        _abort_stream_while_running(
+            endpoint='/v1/chat/completions',
+            stream_payload=stream_payload,
+            session_id=session_id,
+            verify_finish=False,
         )
-        resp.raise_for_status()
-
-        try:
-            _consume_first_nonempty_sse_data_line(resp)
-            _post_abort_explicit_session_or_skip(session_id)
-        finally:
-            resp.close()
 
         new_resp = _chat_non_stream(model_name, session_id, max_tokens=16)
         assert new_resp.status_code == 200, f'Session should be immediately reusable, got {new_resp.status_code}'

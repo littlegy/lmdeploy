@@ -4,8 +4,8 @@ import re
 
 import pytest
 import requests
-from utils.assert_purpose import fail_msg
 from utils.anthropic_messages import RESPONSES_MATH_PROMPT_CN, TINY_1X1_PNG_BASE64
+from utils.assert_purpose import fail_msg
 from utils.config_utils import get_restful_chat_model_list
 from utils.constant import (
     BACKEND_LIST,
@@ -22,26 +22,26 @@ from utils.gateway_compat import (
     responses_low_repetition_extra_body,
     responses_protocol_probe_reasoning,
 )
+from utils.mm_restful import (
+    is_mm_tool_call_capable,
+    require_mm_image_url,
+    responses_user_image_input,
+    skip_unless_vlm_model,
+)
 from utils.restful_return_check import (
     assert_responses_batch_return,
     assert_responses_error,
     assert_usage_prefix_cache,
+    assert_vision_tiger_text,
     gateway_auth_headers,
     get_client_and_model,
+    has_repeated_fragment,
     post_responses_json,
     post_responses_stream_events,
     prefix_cache_probe_text,
-    assert_vision_tiger_text,
-    has_repeated_fragment,
     responses_output_text,
     responses_stream_text,
     wire_checked_response_json,
-)
-
-from utils.mm_restful import (
-    is_mm_tool_call_capable,
-    require_mm_image_url,
-    skip_unless_vlm_model,
 )
 
 _RESPONSES_URL = f'{BASE_URL}/v1/responses'
@@ -384,20 +384,13 @@ class TestRestfulOpenAIResponses:
         assert 'ok' in t1.lower() and t1 == t2, fail_msg('前缀缓存输出一致', (t1[:120], t2[:120]))
 
 
-def _responses_user_image_input(*, image_url: str, text: str) -> list[dict]:
-    return [{
-        'role': 'user',
-        'content': [
-            {'type': 'input_text', 'text': text},
-            {'type': 'input_image', 'image_url': image_url},
-        ],
-    }]
-
-
 @pytest.mark.parametrize('backend', BACKEND_LIST)
 @pytest.mark.parametrize('model_case', get_restful_chat_model_list())
 class TestRestfulResponsesMultimodal:
-    """Responses multimodal protocol only (no tools). Tool+image → ``tool_parser``."""
+    """Responses multimodal protocol only (no tools).
+
+    Tool+image → ``tool_parser``.
+    """
 
     def test_text_model_rejects_image(self, backend, model_case, openai_client_and_model):
         del backend
@@ -406,7 +399,7 @@ class TestRestfulResponsesMultimodal:
         _, model_name = openai_client_and_model
         resp = _post_responses_json({
             'model': model_name,
-            'input': _responses_user_image_input(
+            'input': responses_user_image_input(
                 image_url=f'data:image/png;base64,{TINY_1X1_PNG_BASE64}',
                 text='What is in this image?',
             ),
@@ -426,7 +419,7 @@ class TestRestfulResponsesMultimodal:
         image_url = require_mm_image_url(config)
         resp = _post_responses_json({
             'model': model_name,
-            'input': _responses_user_image_input(
+            'input': responses_user_image_input(
                 image_url=image_url,
                 text='In one word, name the animal in the image.',
             ),
@@ -448,7 +441,7 @@ class TestRestfulResponsesMultimodal:
         events = post_responses_stream_events(
             model_name,
             {
-                'input': _responses_user_image_input(
+                'input': responses_user_image_input(
                     image_url=image_url,
                     text='In one word, name the animal in the image.',
                 ),

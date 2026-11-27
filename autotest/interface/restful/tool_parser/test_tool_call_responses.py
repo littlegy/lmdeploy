@@ -2,17 +2,17 @@
 
 import pytest
 import requests
+from interface.restful.tool_parser.conftest import MESSAGES_ASKING_FOR_WEATHER, _apply_marks, _ToolCallTestBase
 from openai import BadRequestError
 from utils.constant import BASE_URL, CAPPED_MAX_COMPLETION_TOKENS
 from utils.gateway_compat import responses_tool_choice_kwargs
+from utils.mm_restful import chat_messages_to_responses_input
 from utils.restful_return_check import (
     assert_responses_batch_return,
     assert_responses_error,
     responses_output_text,
 )
 from utils.tool_reasoning_definitions import MESSAGES_HELLO, SEARCH_TOOL, WEATHER_TOOL, assert_arguments_parseable
-
-from interface.restful.tool_parser.conftest import MESSAGES_ASKING_FOR_WEATHER, _apply_marks, _ToolCallTestBase
 
 _RESPONSES_URL = f'{BASE_URL}/v1/responses'
 _WEATHER_NAME = WEATHER_TOOL['function']['name']
@@ -31,8 +31,9 @@ _CREATE = dict(
 
 
 def responses_tool_create_kwargs(*, tool_choice, input=None, **extra) -> dict:
+    raw_input = input if input is not None else MESSAGES_ASKING_FOR_WEATHER
     body = dict(
-        input=input if input is not None else MESSAGES_ASKING_FOR_WEATHER,
+        input=chat_messages_to_responses_input(raw_input),
         tools=_TOOLS,
         temperature=0,
         max_output_tokens=CAPPED_MAX_COMPLETION_TOKENS,
@@ -43,7 +44,8 @@ def responses_tool_create_kwargs(*, tool_choice, input=None, **extra) -> dict:
 
 
 def stream_responses_function_call(client, model_name: str, **create_kwargs) -> dict:
-    """Shared streaming tool-call collector for Responses (text + multimodal)."""
+    """Shared streaming tool-call collector for Responses (text +
+    multimodal)."""
     events = list(client.responses.create(model=model_name, stream=True, **create_kwargs))
     assert events[0].type == 'response.created'
     assert events[-1].type == 'response.completed'
@@ -178,7 +180,7 @@ class TestToolCallResponses(_ToolCallTestBase):
         output = client.responses.create(
             model=model_name,
             **_CREATE,
-            **responses_tool_choice_kwargs('none', _TOOLS),
+            **responses_tool_choice_kwargs('none'),
         ).model_dump()
         fcs = assert_responses_batch_return(output, model_name)
         assert not fcs

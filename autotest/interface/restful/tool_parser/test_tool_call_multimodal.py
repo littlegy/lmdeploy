@@ -3,37 +3,6 @@ Messages)."""
 
 import pytest
 import requests
-from openai import BadRequestError
-from utils.anthropic_messages import (
-    SEARCH_TOOL_ANTHROPIC,
-    USER_ASK_WEATHER_DALLAS_VLM,
-    WEATHER_TOOL_ANTHROPIC,
-    assert_success_message_json,
-    assert_weather_tool_city_state,
-)
-from utils.constant import BASE_URL, CAPPED_MAX_COMPLETION_TOKENS, THINKING_MAX_COMPLETION_TOKENS
-from utils.gateway_compat import responses_tool_choice_kwargs
-from utils.restful_return_check import (
-    assert_responses_batch_return,
-    deployed_model_name,
-    responses_output_text,
-)
-from utils.tool_reasoning_definitions import (
-    SEARCH_TOOL,
-    WEATHER_TOOL,
-    assert_arguments_parseable,
-    assert_no_parser_drop,
-    assert_parallel_weather_cities_isolated,
-    assert_tool_call_fields,
-    assert_tool_name_single_delta,
-    build_messages_with_parallel_tool_responses,
-    build_messages_with_tool_response,
-    collect_stream_parallel_tool_calls,
-    collect_stream_tool_call,
-    validate_stream_tool_call_chunks,
-    validate_stream_tool_call_result,
-)
-
 from interface.restful.tool_parser.conftest import (
     MESSAGES_ASKING_FOR_WEATHER,
     MM_IMAGE_MEDIA_TYPES,
@@ -75,6 +44,37 @@ from interface.restful.tool_parser.test_tool_call_responses import (
     _assert_weather_function_call,
     responses_tool_create_kwargs,
     stream_responses_function_call,
+)
+from openai import BadRequestError
+from utils.anthropic_messages import (
+    SEARCH_TOOL_ANTHROPIC,
+    USER_ASK_WEATHER_DALLAS_VLM,
+    WEATHER_TOOL_ANTHROPIC,
+    assert_success_message_json,
+    assert_weather_tool_city_state,
+)
+from utils.constant import BASE_URL, CAPPED_MAX_COMPLETION_TOKENS, THINKING_MAX_COMPLETION_TOKENS
+from utils.gateway_compat import responses_tool_choice_kwargs
+from utils.mm_restful import chat_messages_to_responses_input, responses_user_image_input
+from utils.restful_return_check import (
+    assert_responses_batch_return,
+    deployed_model_name,
+    responses_output_text,
+)
+from utils.tool_reasoning_definitions import (
+    SEARCH_TOOL,
+    WEATHER_TOOL,
+    assert_arguments_parseable,
+    assert_no_parser_drop,
+    assert_parallel_weather_cities_isolated,
+    assert_tool_call_fields,
+    assert_tool_name_single_delta,
+    build_messages_with_parallel_tool_responses,
+    build_messages_with_tool_response,
+    collect_stream_parallel_tool_calls,
+    collect_stream_tool_call,
+    validate_stream_tool_call_chunks,
+    validate_stream_tool_call_result,
 )
 
 _MESSAGES_URL = f'{BASE_URL}/v1/messages'
@@ -1280,11 +1280,13 @@ class TestToolCallMultimodalCrossProtocol(_ToolCallTestBase):
     def test_tool_choice_none_describe_image(self, backend, model_case):
         del backend, model_case
         image_url = self._require_mm_image(MM_TEST_IMAGE_TIGER)
-        messages = [build_multimodal_user_message('Describe this image.', image_url)]
         client, model_name = self._get_client()
         output = client.responses.create(
             model=model_name,
-            input=messages,
+            input=responses_user_image_input(
+                image_url=image_url,
+                text='Describe this image.',
+            ),
             temperature=0,
             max_output_tokens=CAPPED_MAX_COMPLETION_TOKENS,
             **responses_tool_choice_kwargs('none', _RESPONSES_FLAT_TOOLS),
@@ -1357,7 +1359,7 @@ class TestToolCallMultimodalCrossProtocol(_ToolCallTestBase):
             follow = client.responses.create(
                 model=model_name,
                 input=[
-                    *messages,
+                    *chat_messages_to_responses_input(messages),
                     {
                         'type': 'function_call',
                         'call_id': fc['call_id'],

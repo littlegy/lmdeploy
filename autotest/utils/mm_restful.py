@@ -1,4 +1,5 @@
-"""Lightweight multimodal helpers for REST protocol suites (no lmdeploy import)."""
+"""Lightweight multimodal helpers for REST protocol suites (no lmdeploy
+import)."""
 
 from __future__ import annotations
 
@@ -29,7 +30,8 @@ def is_mm_tool_call_capable(model_case: str) -> bool:
 
 
 def skip_unless_vlm_model(model_case: str) -> None:
-    """Protocol-only multimodal cases (no tools): native VL model_case names."""
+    """Protocol-only multimodal cases (no tools): native VL model_case
+    names."""
     if not is_mm_tool_call_capable(model_case):
         pytest.skip(
             f'model {model_case!r} is not treated as vision-capable for multimodal protocol tests')
@@ -41,7 +43,8 @@ def is_mm_video_unsupported(model_case: str) -> bool:
 
 
 def resolve_mm_resource_path(config, filename: str) -> str | None:
-    """Return a local filesystem path for a test media file, or None if missing."""
+    """Return a local filesystem path for a test media file, or None if
+    missing."""
     path = os.path.join(config['resource_path'], filename)
     if os.path.isfile(path):
         return path
@@ -79,6 +82,64 @@ def build_multimodal_media_part(
     if media_type in ('image_url', 'image', 'video_url', 'video'):
         return {media_type: {'url': source, **fields}, 'type': media_type}
     raise ValueError(f'Unsupported multimodal media type: {media_type!r}')
+
+
+def chat_content_parts_to_responses_parts(parts: list[dict]) -> list[dict]:
+    """Chat ``messages[*].content`` parts → Responses ``input`` content
+    parts."""
+    out: list[dict] = []
+    for part in parts:
+        pt = part.get('type')
+        if pt == 'text':
+            out.append({'type': 'input_text', 'text': part['text']})
+        elif pt in ('image_url', 'image'):
+            raw = part.get('image_url')
+            if isinstance(raw, dict):
+                url = raw.get('url')
+            elif isinstance(raw, str):
+                url = raw
+            else:
+                url = None
+            if not isinstance(url, str) or not url.strip():
+                raise ValueError(f'missing image url in chat content part {part!r}')
+            out.append({'type': 'input_image', 'image_url': url})
+        else:
+            raise ValueError(f'unsupported chat content part for Responses: {pt!r}')
+    return out
+
+
+def chat_messages_to_responses_input(messages: list[dict]) -> list[dict]:
+    """Chat-style ``messages`` → Responses API ``input`` (message items)."""
+    items: list[dict] = []
+    for msg in messages:
+        if msg.get('type') in ('function_call', 'function_call_output'):
+            items.append(msg)
+            continue
+        role = msg.get('role')
+        if role is None:
+            raise ValueError(f'message missing role: {msg!r}')
+        content = msg.get('content', '')
+        if isinstance(content, list) and any(
+            isinstance(p, dict) and p.get('type') in ('image_url', 'image')
+            for p in content
+        ):
+            content = chat_content_parts_to_responses_parts(content)
+        item = dict(msg)
+        item['content'] = content
+        item.setdefault('type', 'message')
+        items.append(item)
+    return items
+
+
+def responses_user_image_input(*, image_url: str, text: str) -> list[dict]:
+    """Single user turn with text + image (Responses ``input``)."""
+    return chat_messages_to_responses_input([{
+        'role': 'user',
+        'content': [
+            {'type': 'text', 'text': text},
+            {'type': 'image_url', 'image_url': {'url': image_url}},
+        ],
+    }])
 
 
 def build_multimodal_user_message(
