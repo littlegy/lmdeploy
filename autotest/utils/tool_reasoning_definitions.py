@@ -957,10 +957,7 @@ def collect_stream_tool_call_http(
         **payload_extra,
     )
 
-    headers = {
-        'Authorization': 'Bearer YOUR_API_KEY',
-        'Content-Type': 'application/json',
-    }
+    headers = {'Content-Type': 'application/json'}
 
     tool_calls = {}
     result = _new_stream_tool_call_result()
@@ -1119,10 +1116,7 @@ async def collect_stream_tool_call_http_async(
         return_routed_experts=return_routed_experts,
         **payload_extra,
     )
-    headers = {
-        'Authorization': 'Bearer YOUR_API_KEY',
-        'Content-Type': 'application/json',
-    }
+    headers = {'Content-Type': 'application/json'}
 
     tool_calls: dict = {}
     result = _new_stream_tool_call_result()

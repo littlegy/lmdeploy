@@ -41,9 +41,30 @@ def chat_thinking_off_template_kwargs() -> dict[str, Any]:
 def chat_thinking_off_extra_body(*, base_url: str | None = None) -> dict[str, Any]:
     del base_url
     return chat_sampling_extra_body(
+        enable_thinking=False,
         chat_template_kwargs=chat_thinking_off_template_kwargs(),
-        include_reasoning=False,
     )
+
+
+def chat_health_probe_payload(model_name: str) -> dict[str, Any]:
+    """Flat ``/v1/chat/completions`` body using lmdeploy ``ChatCompletionRequest`` fields."""
+    from utils.constant import thinking_forced_model_enabled
+
+    payload: dict[str, Any] = {
+        'model': model_name,
+        'messages': [{'role': 'user', 'content': '你好'}],
+        'top_k': 1,
+    }
+    if thinking_forced_model_enabled():
+        payload['reasoning_effort'] = 'low'
+        payload['chat_template_kwargs'] = {
+            'enable_thinking': True,
+            'reasoning_effort': 'low',
+        }
+    else:
+        payload['enable_thinking'] = False
+        payload['chat_template_kwargs'] = chat_thinking_off_template_kwargs()
+    return payload
 
 
 def chat_protocol_probe_create_kwargs() -> dict[str, Any]:

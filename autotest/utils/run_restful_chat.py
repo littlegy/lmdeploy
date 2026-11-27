@@ -108,7 +108,7 @@ def start_openai_service(config, run_config, worker_id, timeout: int = 1200):
         time.sleep(1)
         end_time = int(time.time())
         total_time = end_time - start_time
-        result = health_check(http_url, case_name)
+        result = health_check(http_url, model_name)
         if result:
             break
         if total_time >= start_timeout:
@@ -246,24 +246,17 @@ def open_chat_test(log_path, case_name, case_info, url):
 
 
 def health_check(url, model_name: str) -> bool:
-    """Probe chat on the api_server ``--model-name`` (``MODEL`` env is weights path, not served id)."""
+    from utils.gateway_compat import chat_health_probe_payload
+
     try:
-        from openai import OpenAI
-
-        from utils.gateway_compat import chat_thinking_off_extra_body
-        from utils.http_timeout import openai_client_timeout
-
-        client = OpenAI(
-            api_key=os.environ.get('API_KEY', 'YOUR_API_KEY'),
-            base_url=f'{url.rstrip("/")}/v1',
-            timeout=openai_client_timeout(),
+        resp = requests.post(
+            f'{url.rstrip("/")}/v1/chat/completions',
+            headers={'Content-Type': 'application/json'},
+            json=chat_health_probe_payload(model_name),
+            timeout=120,
         )
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[{'role': 'user', 'content': '你好'}],
-            extra_body={**chat_thinking_off_extra_body(), 'top_k': 1},
-        )
-        return bool(response.choices)
+        resp.raise_for_status()
+        return bool(resp.json().get('choices'))
     except Exception:
         return False
 

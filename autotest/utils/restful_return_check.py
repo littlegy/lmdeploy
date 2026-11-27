@@ -1026,28 +1026,25 @@ def gateway_auth_headers(
     content_type: str = 'application/json',
     anthropic_version: str | None = None,
 ) -> dict[str, str]:
-    """Auth for raw ``requests`` calls (OpenAI Bearer + Anthropic ``x-api-
-    key``)."""
+    """Headers for raw ``requests`` calls against a local api_server (no Bearer / x-api-key)."""
     headers: dict[str, str] = {}
     if content_type:
         headers['Content-Type'] = content_type
     if anthropic_version:
         headers['anthropic-version'] = anthropic_version
-    key = os.environ.get('API_KEY', '').strip()
-    if key:
-        headers['Authorization'] = f'Bearer {key}'
-        headers['x-api-key'] = key
     return headers
 
 
 def get_client_and_model(base_url: str | None = None) -> tuple[OpenAI, str]:
-    """Return ``(OpenAI client, deployed model id)`` for a running
-    api_server."""
+    """Return ``(OpenAI client, deployed model id)`` for a running api_server.
+
+    Model id always comes from ``GET /v1/models``; the shell ``MODEL`` env (weights path) is not used.
+    """
     from utils.http_timeout import openai_client_timeout
 
     url = base_url or BASE_URL
     client = OpenAI(
-        api_key=os.environ.get('API_KEY', 'YOUR_API_KEY'),
+        api_key=' ',
         base_url=f'{url.rstrip("/")}/v1',
         timeout=openai_client_timeout(),
     )

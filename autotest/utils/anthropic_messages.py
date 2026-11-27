@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import re
 
 from utils.constant import BASE_URL
@@ -477,7 +476,7 @@ def get_async_anthropic_client_and_model(base_url: str | None = None):
     url = base_url or BASE_URL
     _, model_name = get_client_and_model(url)
     client = anthropic.AsyncAnthropic(
-        api_key=os.getenv('ANTHROPIC_API_KEY', 'YOUR_API_KEY'),
+        api_key='',
         base_url=url,
         max_retries=0,
         timeout=600.0,
