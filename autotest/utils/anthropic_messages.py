@@ -471,12 +471,12 @@ def get_async_anthropic_client_and_model(base_url: str | None = None):
     routes."""
 
     import anthropic
-    from utils.restful_return_check import get_client_and_model
+    from utils.restful_return_check import autotest_api_key, get_client_and_model
 
     url = base_url or BASE_URL
     _, model_name = get_client_and_model(url)
     client = anthropic.AsyncAnthropic(
-        api_key='',
+        api_key=autotest_api_key(),
         base_url=url,
         max_retries=0,
         timeout=600.0,

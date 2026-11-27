@@ -1035,18 +1035,23 @@ def gateway_auth_headers(
     return headers
 
 
+def autotest_api_key() -> str:
+    """API key for OpenAI / Anthropic SDK clients against local api_server."""
+    return (os.environ.get('API_KEY') or '').strip() or 'EMPTY'
+
+
 def get_client_and_model(base_url: str | None = None) -> tuple[OpenAI, str]:
     """Return ``(OpenAI client, deployed model id)`` for a running api_server.
 
     Model id always comes from ``GET /v1/models``; the shell ``MODEL`` env (weights path) is not used.
     """
-    from utils.http_timeout import openai_client_timeout
-
     url = base_url or BASE_URL
+    # OpenAI SDK always sends ``Authorization: Bearer …``; whitespace-only keys
+    # are rejected by httpcore (``Illegal header value``). Local api_server does
+    # not require auth — use a placeholder unless ``API_KEY`` is set (gateway).
     client = OpenAI(
-        api_key=' ',
+        api_key=autotest_api_key(),
         base_url=f'{url.rstrip("/")}/v1',
-        timeout=openai_client_timeout(),
     )
     models = client.models.list().data
     if not models:
