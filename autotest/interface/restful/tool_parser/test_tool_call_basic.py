@@ -11,7 +11,7 @@ from utils.tool_reasoning_definitions import (
     validate_stream_tool_call_result,
 )
 
-from .conftest import MESSAGES_ASKING_FOR_SEARCH, MESSAGES_ASKING_FOR_WEATHER, _apply_marks, _ToolCallTestBase
+from interface.restful.tool_parser.conftest import MESSAGES_ASKING_FOR_SEARCH, MESSAGES_ASKING_FOR_WEATHER, _apply_marks, _ToolCallTestBase
 
 # ===========================================================================
 # Basic tool call: response structure, finish_reason, field validation

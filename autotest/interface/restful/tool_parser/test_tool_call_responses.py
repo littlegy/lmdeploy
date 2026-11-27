@@ -12,7 +12,7 @@ from utils.restful_return_check import (
 )
 from utils.tool_reasoning_definitions import MESSAGES_HELLO, SEARCH_TOOL, WEATHER_TOOL, assert_arguments_parseable
 
-from .conftest import MESSAGES_ASKING_FOR_WEATHER, _apply_marks, _ToolCallTestBase
+from interface.restful.tool_parser.conftest import MESSAGES_ASKING_FOR_WEATHER, _apply_marks, _ToolCallTestBase
 
 _RESPONSES_URL = f'{BASE_URL}/v1/responses'
 _WEATHER_NAME = WEATHER_TOOL['function']['name']

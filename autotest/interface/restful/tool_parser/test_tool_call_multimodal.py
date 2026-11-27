@@ -34,7 +34,7 @@ from utils.tool_reasoning_definitions import (
     validate_stream_tool_call_result,
 )
 
-from .conftest import (
+from interface.restful.tool_parser.conftest import (
     MESSAGES_ASKING_FOR_WEATHER,
     MM_IMAGE_MEDIA_TYPES,
     MM_TEST_IMAGE_BEIJING,
@@ -60,17 +60,17 @@ from .conftest import (
     mm_miami_weather_messages,
     mm_weather_messages_for_media_type,
 )
-from .test_tool_call_anthropic_sdk import (
+from interface.restful.tool_parser.test_tool_call_anthropic_sdk import (
     _http_headers,
     _http_tool_use_blocks,
     _sse_aggregate_tool_use_inputs,
     _sse_tool_use_blocks,
     _trace_anthropic_http,
 )
-from .test_tool_call_responses import (
+from interface.restful.tool_parser.test_tool_call_responses import (
     _TOOLS as _RESPONSES_FLAT_TOOLS,
 )
-from .test_tool_call_responses import (
+from interface.restful.tool_parser.test_tool_call_responses import (
     _WEATHER_NAME,
     _assert_weather_function_call,
     responses_tool_create_kwargs,

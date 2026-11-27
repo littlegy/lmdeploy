@@ -25,7 +25,7 @@ from utils.tool_reasoning_definitions import (
     validate_stream_reasoning_result,
 )
 
-from .conftest import (
+from interface.restful.reasoning_parser.conftest import (
     MESSAGES_REASONING_BASIC,
     MESSAGES_REASONING_CN,
     MESSAGES_REASONING_COMPLEX,

@@ -48,7 +48,7 @@ from utils.restful_return_check import (
 )
 from utils.toolkit import encode_text
 
-from .tool_parser.conftest import (
+from utils.mm_restful import (
     build_multimodal_user_message,
     is_mm_tool_call_capable,
     require_mm_image_url,

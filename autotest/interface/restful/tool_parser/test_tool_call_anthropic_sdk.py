@@ -33,7 +33,7 @@ from utils.config_utils import get_config
 from utils.constant import BASE_URL, THINKING_MAX_COMPLETION_TOKENS
 from utils.restful_return_check import deployed_model_name
 
-from .conftest import _apply_marks, _ToolCallTestBase, skip_unless_vlm_model
+from interface.restful.tool_parser.conftest import _apply_marks, _ToolCallTestBase, skip_unless_vlm_model
 
 ANTHROPIC_VERSION = '2023-06-01'
 

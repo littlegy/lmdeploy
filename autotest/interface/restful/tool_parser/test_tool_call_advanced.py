@@ -24,7 +24,7 @@ from utils.tool_reasoning_definitions import (
     validate_stream_tool_call_with_tokens,
 )
 
-from .conftest import (
+from interface.restful.tool_parser.conftest import (
     MESSAGES_ASKING_FOR_CALCULATION,
     MESSAGES_ASKING_FOR_WEATHER,
     MESSAGES_ASKING_FOR_WEATHER_CN,

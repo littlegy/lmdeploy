@@ -43,7 +43,7 @@ from utils.restful_return_check import (
     wire_checked_response_json,
 )
 
-from .tool_parser.conftest import is_mm_tool_call_capable, skip_unless_vlm_model
+from utils.mm_restful import is_mm_tool_call_capable, skip_unless_vlm_model
 
 ANTHROPIC_VERSION = '2023-06-01'
 

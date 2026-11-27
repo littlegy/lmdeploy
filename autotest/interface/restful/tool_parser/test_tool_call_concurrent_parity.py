@@ -16,7 +16,7 @@ from utils.tool_reasoning_definitions import (
     validate_stream_tool_call_with_tokens,
 )
 
-from .conftest import (
+from interface.restful.tool_parser.conftest import (
     MULTI_TURN_WEATHER_CITIES,
     _apply_marks,
     _ToolCallTestBase,

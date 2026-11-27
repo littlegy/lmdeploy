@@ -38,7 +38,7 @@ from utils.restful_return_check import (
     wire_checked_response_json,
 )
 
-from .tool_parser.conftest import (
+from utils.mm_restful import (
     is_mm_tool_call_capable,
     require_mm_image_url,
     skip_unless_vlm_model,
