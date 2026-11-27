@@ -1,5 +1,8 @@
+import os
+
 import pytest
 from openai import BadRequestError
+from utils.assert_purpose import fail_msg
 from utils.constant import THINKING_MAX_COMPLETION_TOKENS
 from utils.restful_return_check import assert_usage
 from utils.tool_reasoning_definitions import (
@@ -18,6 +21,7 @@ from utils.tool_reasoning_definitions import (
     attach_decoded_validation,
     build_messages_with_tool_response,
     build_reasoning_tool_roundtrip_messages,
+    chat_reasoning_text,
     validate_stream_reasoning_result,
 )
 
@@ -45,6 +49,51 @@ from .conftest import (
 _EXTRA_BODY_THINKING_OFF = {
     'chat_template_kwargs': {'enable_thinking': False},
 }
+
+_INCLUDE_REASONING_MESSAGES = [{'role': 'user', 'content': 'What is 1+1? Be concise.'}]
+
+# ===========================================================================
+# include_reasoning (lmdeploy chat field; thinking must be on)
+# ===========================================================================
+
+
+@_apply_marks_stream
+class TestIncludeReasoning(_ReasoningTestBase):
+    """``include_reasoning`` hides or exposes reasoning separately from
+    content."""
+
+    def _extra(self, include_reasoning: bool) -> dict:
+        return {
+            'chat_template_kwargs': {'enable_thinking': True},
+            'include_reasoning': include_reasoning,
+            'return_token_ids': False,
+        }
+
+    def test_include_reasoning_true(self, backend, model_case, stream):
+        r = self._call_api(
+            stream,
+            _INCLUDE_REASONING_MESSAGES,
+            max_completion_tokens=128,
+            extra_body=self._extra(True),
+            validate_decoded=False,
+        )
+        reasoning = _require_str(r['reasoning'], 'reasoning')
+        content = _require_str(r['content'], 'content')
+        assert len(reasoning.strip()) > 0, fail_msg('include_reasoning=true 时 reasoning 应非空', reasoning)
+        assert len(content.strip()) > 0, fail_msg('assistant content 应非空', content)
+
+    def test_include_reasoning_false(self, backend, model_case, stream):
+        r = self._call_api(
+            stream,
+            _INCLUDE_REASONING_MESSAGES,
+            max_completion_tokens=128,
+            extra_body=self._extra(False),
+            validate_decoded=False,
+        )
+        _assert_reasoning_absent(r['reasoning'], stream=stream)
+        content = _require_str(r['content'], 'content')
+        assert len(content.strip()) > 0, fail_msg('assistant content 应非空', content)
+
 
 # ===========================================================================
 # Basic reasoning: presence, quality, separation
@@ -513,6 +562,28 @@ class TestReasoningTokenAccounting(_ReasoningTestBase):
                                                   extra_body=_EXTRA_BODY_THINKING_OFF)
         assert_usage(response.usage.model_dump())
         assert_completion_reasoning_tokens(response.usage, expect_reasoning=False)
+
+    def test_reasoning_presence_is_stable(self, backend, model_case):
+        """Repeat one thinking request.
+
+        reasoning_content must not flicker on and off.
+        """
+        del backend, model_case
+        count = int(os.environ.get('REASONING_STABILITY_COUNT', '5'))
+        assert count >= 2, fail_msg('稳定性探测重复次数至少为 2', count)
+        client, model_name = self._get_client()
+        present = []
+        for _ in range(count):
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=MESSAGES_REASONING_BASIC,
+                temperature=0,
+                max_completion_tokens=THINKING_MAX_COMPLETION_TOKENS,
+                extra_body={'chat_template_kwargs': {'enable_thinking': True}},
+            )
+            text = chat_reasoning_text(response.choices[0].message)
+            present.append(isinstance(text, str) and bool(text.strip()))
+        assert len(set(present)) == 1, fail_msg('重复请求 reasoning 有无应稳定一致', present)
 
 
 # ===========================================================================

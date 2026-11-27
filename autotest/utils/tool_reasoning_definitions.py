@@ -814,6 +814,14 @@ def _stream_delta_field(delta, field: str):
     return _stream_part_field(delta, field)
 
 
+def chat_reasoning_text(message) -> str | None:
+    """Completed assistant message: lmdeploy exposes thinking as ``reasoning_content``."""
+    if isinstance(message, dict):
+        value = message.get('reasoning_content')
+        return value if isinstance(value, str) or value is None else None
+    return _stream_object_field(message, 'reasoning_content')
+
+
 def _merge_stream_choice(
     choice,
     result: dict,

@@ -7,6 +7,14 @@ PROXY_PORT = 8000
 THINKING_MAX_COMPLETION_TOKENS = 8192
 # Tool tests (thinking off) and ignore_eos length-cap tests.
 CAPPED_MAX_COMPLETION_TOKENS = 1024
+# Vision chat smoke tests.
+VISION_SMOKE_MIN_COMPLETION_TOKENS = 256
+LOW_REPETITION_PENALTY = 1.05
+# Engine sampling: shared user prompt and penalties (Chat / Responses / Messages).
+CHAT_LOW_REPETITION_PENALTY = 0.0000001
+REPETITION_PENALTY_ABOVE_ONE = 1.2
+LOW_REPETITION_MIN_NEW_TOKENS = 100
+REPETITION_PROBE_PROMPT = 'Repeat repeat repeat repeat'
 
 BASE_HTTP_URL = f'http://{DEFAULT_SERVER}'
 BASE_URL = f'{BASE_HTTP_URL}:{os.getenv("LMDEPLOY_PORT", str(DEFAULT_PORT))}'
@@ -252,3 +260,11 @@ MM_DEMO_TOMB_USER_PROMPT = (
     'Watch the entire video, pick the best option from what you see, then reply briefly with the letter '
     '(A, B, C, or D) first and at most one short sentence. Do not output long step-by-step reasoning; '
     'keep the final reply concise.\n\n' + MM_DEMO_TOMB_MCQ_JSON_BLOCK)
+
+# THINKING_FORCED_MODEL: optional thinking-forced SKU smoke.
+def _env_flag(name: str) -> bool:
+    return os.environ.get(name, '').strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def thinking_forced_model_enabled() -> bool:
+    return _env_flag('THINKING_FORCED_MODEL')

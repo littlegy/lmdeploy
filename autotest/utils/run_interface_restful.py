@@ -11,6 +11,8 @@ from pathlib import Path
 
 import allure
 from utils.config_utils import (
+    derive_generate_marker,
+    derive_rest_logprob_marker,
     get_case_str_by_config,
     get_restful_protocol_model_candidates,
     get_workerid,
@@ -175,7 +177,13 @@ def _run_interface_suites(
     model = run_config['model']
     backend = run_config['backend']
     case_info = list(run_config.get('case_info') or [])
-    generate_marker = run_config.get('generate_marker') or f'not not_{backend}'
+    phase_suites = list(run_config.get('interface_suites') or [])
+    generate_marker = (
+        derive_generate_marker(phase_suites, backend)
+        if phase_suites
+        else (run_config.get('generate_marker') or f'not not_{backend}')
+    )
+    protocol_marker = derive_rest_logprob_marker(phase_suites, backend)
     n_workers = _suite_workers()
     log_dir = config.get('log_path') or str(_AUTOTEST_ROOT)
     timestamp = time.strftime('%Y%m%d_%H%M%S')
@@ -234,12 +242,17 @@ def _run_interface_suites(
         (
             'chat_completions_v1',
             'autotest/interface/restful/test_restful_chat_completions_v1.py',
-            f'not not_{backend}',
+            protocol_marker,
         ),
         (
             'completions_v1',
             'autotest/interface/restful/test_restful_completions_v1.py',
-            None,
+            protocol_marker,
+        ),
+        (
+            'responses_v1',
+            'autotest/interface/restful/test_restful_responses_v1.py',
+            protocol_marker,
         ),
         (
             'generate',

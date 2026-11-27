@@ -7,6 +7,11 @@ import re
 
 from utils.constant import BASE_URL
 
+# 1×1 PNG for multimodal reject / no-resource smoke (protocol tests only).
+TINY_1X1_PNG_BASE64 = (
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+)
+
 VALID_STOP_REASONS = ('end_turn', 'max_tokens', 'stop_sequence', 'tool_use', 'parse_error')
 
 # -- Tool definitions (Messages API ``tools[]`` style) -----------------------
@@ -97,6 +102,14 @@ THINKING_SCRATCHPAD = '(internal scratchpad)'
 ASSISTANT_GREETING_AFTER_THINKING = 'Hello — how can I help?'
 USER_HI = 'Hi.'
 USER_REPLY_ACK = 'Reply with exactly: ACK'
+USER_GREETING_CN = '请用一句简短的中文问候语回复，不要解释。'
+COMPLETIONS_PROMPT_CN = '请用中文简短介绍你自己。'
+USER_CHINESE_STRICT_GREETING_CN = (
+    '请用一句简体中文问候我，不要包含任何英文字母。'
+)
+RESPONSES_MATH_PROMPT_CN = (
+    '13 乘以 24 等于多少？请用一句中文简要回答，并写出数字结果。'
+)
 
 ANTHROPIC_SYSTEM_WEATHER = (
     'You are a helpful assistant that can use tools. '
@@ -136,6 +149,97 @@ ANTHROPIC_MESSAGES_PARALLEL_MIXED = [
         'Also calculate 1234 * 5678.',
     },
 ]
+
+USER_ASK_REQUIRED_REPLY = 'Acknowledge with your required reply.'
+ANTHROPIC_SYSTEM_REPLY_CONFIRMED = (
+    'You reply only with the single word: Confirmed.'
+)
+ANTHROPIC_SYSTEM_REPLY_ACKNOWLEDGED = (
+    'You reply only with the single word: Acknowledged.'
+)
+
+# Unique tokens per system segment; reply must include all (case-insensitive).
+SYSTEM_SEGMENT_MAGIC: tuple[str, str] = ('FIDELITY_SYS_ALPHA', 'FIDELITY_SYS_BETA')
+
+
+def anthropic_system_text_blocks(
+    magic: tuple[str, ...] = SYSTEM_SEGMENT_MAGIC,
+) -> list[dict]:
+    return [{'type': 'text', 'text': f'Include token {token} in your reply.'} for token in magic]
+
+
+def assistant_text_contains_all_magic(
+    text: str,
+    magic: tuple[str, ...] = SYSTEM_SEGMENT_MAGIC,
+) -> bool:
+    lowered = (text or '').lower()
+    return all(token.lower() in lowered for token in magic)
+
+
+def build_anthropic_messages_inline_system_history() -> list[dict]:
+    return [
+        {'role': 'user', 'content': 'Say hello in one word.'},
+        {'role': 'assistant', 'content': 'Hello.'},
+        {'role': 'system', 'content': ANTHROPIC_SYSTEM_REPLY_CONFIRMED},
+        {'role': 'user', 'content': USER_ASK_REQUIRED_REPLY},
+    ]
+
+
+def build_anthropic_messages_merged_system_prompt() -> tuple[str, list[dict]]:
+    return (
+        ANTHROPIC_SYSTEM_REPLY_ACKNOWLEDGED,
+        [
+            {'role': 'user', 'content': 'First question.'},
+            {'role': 'system', 'content': ANTHROPIC_SYSTEM_REPLY_CONFIRMED},
+            {'role': 'user', 'content': USER_ASK_REQUIRED_REPLY},
+        ],
+    )
+
+
+def build_messages_sampling_json(
+    model: str,
+    *,
+    repetition_penalty: float | None = None,
+    top_k: int | None = None,
+    stream: bool = False,
+    user: str | None = None,
+    max_tokens: int = 200,
+    temperature: float = 0.01,
+) -> dict:
+    from utils.constant import REPETITION_PROBE_PROMPT
+
+    prompt = REPETITION_PROBE_PROMPT if user is None else user
+    body: dict = {
+        'model': model,
+        'max_tokens': max_tokens,
+        'temperature': temperature,
+        'messages': [{'role': 'user', 'content': prompt}],
+    }
+    if repetition_penalty is not None:
+        body['repetition_penalty'] = repetition_penalty
+    if top_k is not None:
+        body['top_k'] = top_k
+    if stream:
+        body['stream'] = True
+    return body
+
+
+def build_messages_low_repetition_json(model: str, *, stream: bool = False) -> dict:
+    from utils.constant import (
+        CHAT_LOW_REPETITION_PENALTY,
+        LOW_REPETITION_MIN_NEW_TOKENS,
+        REPETITION_PROBE_PROMPT,
+    )
+    from utils.gateway_compat import expand_min_output_tokens
+
+    body = build_messages_sampling_json(
+        model,
+        repetition_penalty=CHAT_LOW_REPETITION_PENALTY,
+        stream=stream,
+        user=REPETITION_PROBE_PROMPT,
+    )
+    body.update(expand_min_output_tokens({'min_new_tokens': LOW_REPETITION_MIN_NEW_TOKENS}))
+    return body
 
 
 def build_anthropic_messages_history_tool_result(

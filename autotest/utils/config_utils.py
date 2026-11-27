@@ -26,11 +26,12 @@ ENGINE_CONFIG_KEY = 'engine_config'
 TEST_COVERAGE_KEY = 'test_coverage'
 INTERFACE_KEY = 'interface'
 INTERFACE_SUITES = frozenset({
-    'base', 'logprob', 'experts', 'anthropic', 'toolcall', 'reasoning', 'sleep', 'abort',
+    'base', 'logprob', 'experts', 'responses', 'anthropic', 'toolcall', 'reasoning', 'sleep',
+    'abort',
 })
 GENERATE_SUITES = frozenset({'base', 'logprob', 'experts'})
 INTERFACE_SUITE_ORDER = (
-    'base', 'logprob', 'experts', 'anthropic', 'toolcall', 'reasoning', 'sleep', 'abort',
+    'base', 'logprob', 'experts', 'responses', 'anthropic', 'toolcall', 'reasoning', 'sleep', 'abort',
 )
 INTERFACE_BACKENDS_ENV = 'INTERFACE_BACKENDS'
 
@@ -792,6 +793,7 @@ def derive_interface_server_extra(
 _RESTFUL_CHAT_PROTOCOL_CASES = frozenset({
     'chat_completions_v1',
     'generate',
+    'responses_v1',
     'anthropic_v1',
     'anthropic_sdk',
 })
@@ -923,6 +925,8 @@ def derive_interface_case_info(profiles: list[str], suites: list[str] | set[str]
         if suite_set & GENERATE_SUITES:
             case_info.append('chat_completions_v1')
             case_info.append('generate')
+    if 'responses' in suite_set:
+        case_info.append('responses_v1')
     if 'anthropic' in suite_set:
         case_info.append('anthropic_v1')
         case_info.append('anthropic_sdk')
@@ -935,6 +939,18 @@ def derive_interface_case_info(profiles: list[str], suites: list[str] | set[str]
     if 'abort' in suite_set:
         case_info.append('abort_request')
     return case_info
+
+
+def derive_rest_logprob_marker(suites: list[str] | set[str], backend: str) -> str:
+    """Pytest ``-m`` for Chat / Completions / Responses interface suites.
+
+    ``@pytest.mark.logprob`` cases run only when yaml enables the ``logprob``
+    suite on this launch phase (same rule as ``derive_generate_marker``).
+    """
+    parts = [f'not not_{backend}']
+    if 'logprob' not in set(suites):
+        parts.append('not logprob')
+    return ' and '.join(parts)
 
 
 def derive_generate_marker(suites: list[str] | set[str], backend: str) -> str:

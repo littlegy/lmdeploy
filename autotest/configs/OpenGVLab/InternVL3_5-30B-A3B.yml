@@ -22,16 +22,22 @@ a100:
       suites:
       - base
       - logprob
+      - responses
       - anthropic
+      - toolcall
       extra:
         logprobs-mode: raw_logprobs
+        tool-call-parser: qwen3
     turbomind:
       suites:
       - base
       - logprob
+      - responses
       - anthropic
+      - toolcall
       extra:
         logprobs-mode: raw_logprobs
+        tool-call-parser: qwen3
   gen_config:
     repetition-penalty: 1.0
     top-p: 0.8
@@ -58,13 +64,19 @@ h:
       suites:
       - base
       - logprob
+      - responses
       - anthropic
+      - toolcall
       extra:
         logprobs-mode: raw_logprobs
+        tool-call-parser: qwen3
     turbomind:
       suites:
       - base
       - logprob
+      - responses
       - anthropic
+      - toolcall
       extra:
         logprobs-mode: raw_logprobs
+        tool-call-parser: qwen3

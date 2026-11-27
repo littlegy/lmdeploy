@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from functools import lru_cache
 
 import pytest
@@ -9,24 +10,46 @@ import requests
 from utils.anthropic_messages import (
     ANTHROPIC_MESSAGES_HISTORY_THINKING_REPLAY,
     USER_ASK_WEATHER_DALLAS,
+    USER_GREETING_CN,
     WEATHER_TOOL_ANTHROPIC,
+    anthropic_system_text_blocks,
     assert_stream_stop_sequence_lifecycle,
     assert_stream_text_lifecycle,
     assert_success_message_json,
     assert_warm_yes_answer,
+    assistant_text_contains_all_magic,
     build_anthropic_messages_history_tool_result,
+    build_anthropic_messages_inline_system_history,
+    build_anthropic_messages_merged_system_prompt,
+    build_messages_low_repetition_json,
+    build_messages_sampling_json,
 )
+from utils.assert_purpose import fail_msg
 from utils.config_utils import get_config, get_restful_chat_model_list
-from utils.constant import BACKEND_LIST, BASE_URL
+from utils.constant import (
+    BACKEND_LIST,
+    BASE_URL,
+    REPETITION_PENALTY_ABOVE_ONE,
+    THINKING_MAX_COMPLETION_TOKENS,
+)
+from utils.gateway_compat import engine_top_k_fields
 from utils.restful_return_check import (
+    assert_usage_prefix_cache,
+    assert_vision_tiger_text,
     build_session_sized_user_content,
     deployed_model_name,
+    has_repeated_fragment,
+    prefix_cache_pad_text,
+    wire_checked_response_json,
 )
+
+from .tool_parser.conftest import is_mm_tool_call_capable, skip_unless_vlm_model
 
 ANTHROPIC_VERSION = '2023-06-01'
 
 _MESSAGES_URL = f'{BASE_URL}/v1/messages'
 _COUNT_TOKENS_URL = f'{BASE_URL}/v1/messages/count_tokens'
+_MESSAGES_TEXT_BUDGET = THINKING_MAX_COMPLETION_TOKENS
 
 _EVAL_IMAGE_TIGER = 'tiger.jpeg'
 
@@ -67,30 +90,6 @@ def _anthropic_headers() -> dict[str, str]:
 
 def _assistant_text_from_message_payload(data: dict) -> str:
     return ''.join(b['text'] for b in data['content'] if b['type'] == 'text')
-
-
-def _model_likely_supports_anthropic_vlm(model_name: str) -> bool:
-    """Heuristic for RESTFUL matrix: skip image HTTP when the served id is clearly text-only."""
-
-    m = model_name.upper()
-    return any(
-        needle in m
-        for needle in (
-            'VL',
-            'INTERNVL',
-            'INTERN-VL',
-            'QWEN-VL',
-            'QWEN2-VL',
-            'QWEN2.5-VL',
-            'QWEN3.5',
-            'MINICPM-V',
-            'LLAVA',
-            'COGVLM',
-            'XCOMPOSER',
-            'INTERNXCOMPOSER',
-            'INTERNS',
-            'INTERN-S',
-        ))
 
 
 def _parse_anthropic_sse(raw: str) -> list[tuple[str | None, dict]]:
@@ -335,6 +334,96 @@ class TestRestfulAnthropicV1:
         text = _assistant_text_from_message_payload(data).lower()
         assert 'confirmed' in text, text[:500]
 
+    def test_messages_system_text_blocks_all_segments_reach_model(self, backend, model_case):
+        del backend, model_case
+        resp = requests.post(
+            _MESSAGES_URL,
+            headers=_anthropic_headers(),
+            json={
+                'model': deployed_model_name(),
+                'max_tokens': 256,
+                'temperature': 0,
+                'system': anthropic_system_text_blocks(),
+                'messages': [{
+                    'role': 'user',
+                    'content': (
+                        'One short sentence in English; include every system token you were given.'
+                    ),
+                }],
+            },
+            timeout=120,
+        )
+        assert resp.status_code == 200, fail_msg('system 分段应 200', resp.text[:300])
+        text = _assistant_text_from_message_payload(assert_success_message_json(resp.json()))
+        assert assistant_text_contains_all_magic(text), fail_msg(
+            '每段 system block 的 magic token 应出现在回复中', text[:500])
+
+    def test_messages_inline_system_in_history(self, backend, model_case):
+        del backend, model_case
+        resp = requests.post(
+            _MESSAGES_URL,
+            headers=_anthropic_headers(),
+            json={
+                'model': deployed_model_name(),
+                'max_tokens': 256,
+                'temperature': 0.01,
+                'messages': build_anthropic_messages_inline_system_history(),
+            },
+            timeout=120,
+        )
+        assert resp.status_code == 200, fail_msg('内联 system 应 200', resp.text[:300])
+        text = _assistant_text_from_message_payload(assert_success_message_json(resp.json())).lower()
+        assert 'confirmed' in text, fail_msg('内联 system 约束', text[:500])
+
+    def test_messages_top_level_and_inline_system(self, backend, model_case):
+        del backend, model_case
+        top_level_system, messages = build_anthropic_messages_merged_system_prompt()
+        resp = requests.post(
+            _MESSAGES_URL,
+            headers=_anthropic_headers(),
+            json={
+                'model': deployed_model_name(),
+                'max_tokens': 256,
+                'temperature': 0.01,
+                'system': top_level_system,
+                'messages': messages,
+            },
+            timeout=120,
+        )
+        assert resp.status_code == 200, fail_msg('顶层+内联 system 应 200', resp.text[:300])
+        text = _assistant_text_from_message_payload(assert_success_message_json(resp.json())).lower()
+        assert 'confirmed' in text or 'acknowledge' in text, fail_msg(
+            '顶层+内联 system 约束', text[:500])
+
+    def test_count_tokens_matches_messages_with_inline_system(self, backend, model_case):
+        del backend, model_case
+        top_level_system, messages = build_anthropic_messages_merged_system_prompt()
+        count_json = {
+            'model': deployed_model_name(),
+            'system': top_level_system,
+            'messages': messages,
+        }
+        r_count = requests.post(
+            _COUNT_TOKENS_URL,
+            headers=_anthropic_headers(),
+            json=count_json,
+            timeout=60,
+        )
+        assert r_count.status_code == 200, fail_msg('count_tokens 应 200', r_count.text[:300])
+        counted = _assert_count_tokens_json(r_count.json())
+        r_msg = requests.post(
+            _MESSAGES_URL,
+            headers=_anthropic_headers(),
+            json={**count_json, 'max_tokens': _MESSAGES_TEXT_BUDGET, 'temperature': 0.01},
+            timeout=120,
+        )
+        assert r_msg.status_code == 200, fail_msg('messages 应 200', r_msg.text[:300])
+        data = assert_success_message_json(r_msg.json())
+        assert data['usage']['input_tokens'] == counted, fail_msg(
+            'count_tokens 与 messages input_tokens 一致',
+            (data['usage']['input_tokens'], counted),
+        )
+
     def test_messages_history_tool_use_and_tool_result_without_request_tools(
             self, backend, model_case):
         """Replay ``tool_use`` / ``tool_result`` blocks without top-level
@@ -381,13 +470,44 @@ class TestRestfulAnthropicV1:
             f'stop_reason={data["stop_reason"]!r} text={text[:500]!r}'
         )
 
-    def test_messages_user_image_file_from_config_resource(self, backend, model_case):
+    # Multimodal Messages protocol (no tools). Tool+image → ``tool_parser/`` anthropic SDK tests.
+
+    def test_messages_text_model_rejects_image(self, backend, model_case):
+        del backend
+        if is_mm_tool_call_capable(model_case):
+            pytest.skip('VL models covered by accept-image cases')
+        resp = requests.post(
+            _MESSAGES_URL,
+            headers=_anthropic_headers(),
+            json={
+                'model': deployed_model_name(),
+                'max_tokens': 16,
+                'temperature': 0,
+                'messages': [{
+                    'role': 'user',
+                    'content': [
+                        {'type': 'text', 'text': 'What is in this image?'},
+                        {
+                            'type': 'image',
+                            'source': {
+                                'type': 'base64',
+                                'media_type': 'image/png',
+                                'data': _TINY_PNG_BASE64,
+                            },
+                        },
+                    ],
+                }],
+            },
+            timeout=60,
+        )
+        _assert_anthropic_invalid_request_error(resp)
+
+    def test_messages_user_image_file_from_config_resource(self, backend, model_case, config):
         """``user`` message with Anthropic ``image`` + local ``resource_path``
         file (``config_h.yml``)."""
 
-        if not _model_likely_supports_anthropic_vlm(deployed_model_name()):
-            pytest.skip(f'model {deployed_model_name()!r} is not treated as vision-capable for this test')
-
+        del backend, config
+        skip_unless_vlm_model(model_case)
         image_path = _eval_resource_file(_EVAL_IMAGE_TIGER)
         resp = requests.post(
             _MESSAGES_URL,
@@ -411,15 +531,14 @@ class TestRestfulAnthropicV1:
         )
         assert resp.status_code == 200, resp.text
         data = assert_success_message_json(resp.json())
-        text = _assistant_text_from_message_payload(data).lower()
-        assert any(
-            k in text
-            for k in ('tiger', 'cat', 'big cat', '虎', '猫', 'feline')), text[:800]
+        assert_vision_tiger_text(_assistant_text_from_message_payload(data), label='Messages')
 
-    def test_count_tokens_user_image_block_exceeds_text_only(self, backend, model_case):
+    def test_count_tokens_user_image_block_exceeds_text_only(self, backend, model_case, config):
         """``count_tokens`` flattens ``image`` blocks in
         ``to_lmdeploy_messages``; count should exceed text-only."""
 
+        del backend, config
+        skip_unless_vlm_model(model_case)
         image_path = _eval_resource_file(_EVAL_IMAGE_TIGER)
         base = {
             'model': deployed_model_name(),
@@ -451,12 +570,11 @@ class TestRestfulAnthropicV1:
         n1 = _assert_count_tokens_json(r1.json())
         assert n1 > n0, ('image-bearing user message should tokenize longer than text-only', n1, n0)
 
-    def test_messages_user_image_interleaved_text_blocks(self, backend, model_case):
+    def test_messages_user_image_interleaved_text_blocks(self, backend, model_case, config):
         """Multimodal user turn: ``text`` → ``image`` → ``text`` (ordering + VLM path)."""
 
-        if not _model_likely_supports_anthropic_vlm(deployed_model_name()):
-            pytest.skip(f'model {deployed_model_name()!r} is not treated as vision-capable for this test')
-
+        del backend, config
+        skip_unless_vlm_model(model_case)
         image_path = _eval_resource_file(_EVAL_IMAGE_TIGER)
         resp = requests.post(
             _MESSAGES_URL,
@@ -481,18 +599,14 @@ class TestRestfulAnthropicV1:
         )
         assert resp.status_code == 200, resp.text
         data = assert_success_message_json(resp.json())
-        text = _assistant_text_from_message_payload(data).lower()
-        assert any(
-            k in text
-            for k in ('tiger', 'cat', 'big cat', '虎', '猫', 'feline')), text[:800]
+        assert_vision_tiger_text(_assistant_text_from_message_payload(data), label='Messages')
 
     def test_messages_user_image_base64_stream(self, backend, model_case):
         """Tiny PNG via ``base64`` source + ``stream: true`` (VLM + SSE
         path)."""
 
-        if not _model_likely_supports_anthropic_vlm(deployed_model_name()):
-            pytest.skip(f'model {deployed_model_name()!r} is not treated as vision-capable for this test')
-
+        del backend
+        skip_unless_vlm_model(model_case)
         resp = requests.post(
             _MESSAGES_URL,
             headers=_anthropic_headers(),
@@ -693,6 +807,25 @@ class TestRestfulAnthropicV1:
         assert data['content'][0]['type'] == 'text'
         assert len(_assistant_text_from_message_payload(data).strip()) > 0
 
+    def test_messages_non_stream_chinese_user_prompt(self, backend, model_case):
+        del backend, model_case
+        resp = requests.post(
+            _MESSAGES_URL,
+            headers=_anthropic_headers(),
+            json={
+                'model': deployed_model_name(),
+                'max_tokens': _MESSAGES_TEXT_BUDGET,
+                'temperature': 0.01,
+                'messages': [{'role': 'user', 'content': USER_GREETING_CN}],
+            },
+            timeout=120,
+        )
+        assert resp.status_code == 200, fail_msg('中文 Messages 非流式应 200', resp.text[:300])
+        text = _assistant_text_from_message_payload(assert_success_message_json(resp.json())).strip()
+        assert text, fail_msg('中文 prompt 应有非空回复', resp.text[:300])
+        assert len(re.findall(r'[\u4e00-\u9fff]', text)) >= 2, fail_msg(
+            '中文回复应含汉字', text[:300])
+
     def test_messages_stream(self, backend, model_case):
         """SSE lifecycle: ``message_start`` → block deltas → ``message_stop``."""
 
@@ -718,6 +851,162 @@ class TestRestfulAnthropicV1:
         assert sum(1 for d in ('1', '2', '3') if d in assembled) >= 2, (
             'expected at least two of the digits 1–3 in streamed text', repr(assembled[:200])
         )
+
+    def test_messages_stream_chinese_user_prompt(self, backend, model_case):
+        del backend, model_case
+        resp = requests.post(
+            _MESSAGES_URL,
+            headers=_anthropic_headers(),
+            json={
+                'model': deployed_model_name(),
+                'max_tokens': _MESSAGES_TEXT_BUDGET,
+                'temperature': 0.01,
+                'stream': True,
+                'messages': [{'role': 'user', 'content': USER_GREETING_CN}],
+            },
+            stream=True,
+            timeout=120,
+        )
+        assert resp.status_code == 200, fail_msg('中文 Messages 流式应 200', resp.text[:300])
+        raw = ''.join(chunk.decode('utf-8') for chunk in resp.iter_content(chunk_size=None) if chunk)
+        events = _parse_anthropic_sse(raw)
+        assert_stream_text_lifecycle(events)
+        assembled = _aggregate_stream_text(events).strip()
+        assert assembled, fail_msg('中文流式应有文本', raw[:400])
+        assert len(re.findall(r'[\u4e00-\u9fff]', assembled)) >= 2, fail_msg(
+            '中文流式应含汉字', assembled[:300])
+
+    def test_messages_prefix_cache_hit(self, backend, model_case):
+        del backend, model_case
+        body = {
+            'model': deployed_model_name(),
+            'max_tokens': _MESSAGES_TEXT_BUDGET,
+            'system': [{
+                'type': 'text',
+                'text': prefix_cache_pad_text(),
+                'cache_control': {'type': 'ephemeral'},
+            }],
+            'messages': [{'role': 'user', 'content': 'Reply with one word: ok'}],
+        }
+        first = requests.post(_MESSAGES_URL, headers=_anthropic_headers(), json=body, timeout=120)
+        second = requests.post(_MESSAGES_URL, headers=_anthropic_headers(), json=body, timeout=120)
+        assert first.status_code == 200, fail_msg('前缀缓存第一次应 200', first.text[:300])
+        assert second.status_code == 200, fail_msg('前缀缓存第二次应 200', second.text[:300])
+        first_body = wire_checked_response_json(first)
+        second_body = wire_checked_response_json(second)
+        assert_usage_prefix_cache(
+            first_body['usage'],
+            second_body['usage'],
+            prompt_key='input_tokens',
+            cached_keys=('cache_read_input_tokens',),
+            output_key='output_tokens',
+        )
+        t1 = _assistant_text_from_message_payload(first_body)
+        t2 = _assistant_text_from_message_payload(second_body)
+        assert t1.strip() and 'ok' in t1.lower(), fail_msg('探针回复须含 ok', t1[:200])
+        assert t1 == t2, fail_msg('两次输出应一致', (t1[:120], t2[:120]))
+
+    def test_minimum_repetition_penalty(self, backend, model_case):
+        del backend, model_case
+        resp = requests.post(
+            _MESSAGES_URL,
+            headers=_anthropic_headers(),
+            json=build_messages_low_repetition_json(deployed_model_name()),
+            timeout=120,
+        )
+        assert resp.status_code == 200, fail_msg('repetition 探针应 200', resp.text[:300])
+        text = _assistant_text_from_message_payload(assert_success_message_json(resp.json()))
+        assert text.strip(), fail_msg('须有非空回复', text[:200])
+        result, msg = has_repeated_fragment(text)
+        assert result, fail_msg('极低 repetition_penalty 下应出现重复片段', msg)
+
+    def test_minimum_repetition_penalty_streaming(self, backend, model_case):
+        del backend, model_case
+        resp = requests.post(
+            _MESSAGES_URL,
+            headers=_anthropic_headers(),
+            json=build_messages_low_repetition_json(deployed_model_name(), stream=True),
+            stream=True,
+            timeout=120,
+        )
+        assert resp.status_code == 200, fail_msg('流式 repetition 应 200', resp.text[:300])
+        raw = ''.join(chunk.decode('utf-8') for chunk in resp.iter_content(chunk_size=None) if chunk)
+        events = _parse_anthropic_sse(raw)
+        assert_stream_text_lifecycle(events)
+        assembled = _aggregate_stream_text(events)
+        result, msg = has_repeated_fragment(assembled)
+        assert result, fail_msg('流式 repetition 重复片段', msg)
+
+    def test_repetition_penalty_bigger_than_1(self, backend, model_case):
+        del backend, model_case
+        resp = requests.post(
+            _MESSAGES_URL,
+            headers=_anthropic_headers(),
+            json=build_messages_sampling_json(
+                deployed_model_name(), repetition_penalty=REPETITION_PENALTY_ABOVE_ONE),
+            timeout=120,
+        )
+        assert resp.status_code == 200, fail_msg('repetition>1 应 200', resp.text[:300])
+        text = _assistant_text_from_message_payload(assert_success_message_json(resp.json()))
+        assert text.strip(), fail_msg('须有非空回复', text[:200])
+
+    def test_repetition_penalty_bigger_than_1_streaming(self, backend, model_case):
+        del backend, model_case
+        resp = requests.post(
+            _MESSAGES_URL,
+            headers=_anthropic_headers(),
+            json=build_messages_sampling_json(
+                deployed_model_name(),
+                repetition_penalty=REPETITION_PENALTY_ABOVE_ONE,
+                stream=True,
+            ),
+            stream=True,
+            timeout=120,
+        )
+        assert resp.status_code == 200, fail_msg('流式 repetition>1 应 200', resp.text[:300])
+        raw = ''.join(chunk.decode('utf-8') for chunk in resp.iter_content(chunk_size=None) if chunk)
+        events = _parse_anthropic_sse(raw)
+        assert_stream_text_lifecycle(events)
+        assert _aggregate_stream_text(events).strip(), fail_msg('流式应有文本', raw[:400])
+
+    def test_top_k_minus_1_disables_top_k_filtering(self, backend, model_case):
+        del backend, model_case
+        resp = requests.post(
+            _MESSAGES_URL,
+            headers=_anthropic_headers(),
+            json=build_messages_sampling_json(
+                deployed_model_name(),
+                user='Hi, pls intro yourself',
+                **engine_top_k_fields(-1),
+            ),
+            timeout=120,
+        )
+        assert resp.status_code == 200, fail_msg('top_k=-1 应 200', resp.text[:300])
+        text = _assistant_text_from_message_payload(assert_success_message_json(resp.json()))
+        assert text.strip(), fail_msg('top_k=-1 应非空', text[:200])
+
+    def test_top_k_1_greedy(self, backend, model_case):
+        del backend, model_case
+
+        def _greedy_text() -> str:
+            resp = requests.post(
+                _MESSAGES_URL,
+                headers=_anthropic_headers(),
+                json=build_messages_sampling_json(
+                    deployed_model_name(),
+                    temperature=0,
+                    **engine_top_k_fields(1),
+                ),
+                timeout=120,
+            )
+            assert resp.status_code == 200, fail_msg('top_k=1 应 200', resp.text[:300])
+            return _assistant_text_from_message_payload(assert_success_message_json(resp.json()))
+
+        text_a = _greedy_text()
+        text_b = _greedy_text()
+        assert text_a.strip(), fail_msg('top_k=1 贪心应非空', text_a[:200])
+        assert text_a == text_b, fail_msg(
+            'top_k=1 同参两次应一致', (text_a[:120], text_b[:120]))
 
     def test_count_tokens(self, backend, model_case):
         r_short = requests.post(

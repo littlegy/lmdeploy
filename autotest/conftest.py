@@ -20,6 +20,10 @@ def pytest_configure(config):
         'markers',
         'distributed: multi-node runner (ray or proxy), not single-machine layout',
     )
+    config.addinivalue_line(
+        'markers',
+        'logprob: requires interface logprob suite (--logprobs-mode on api_server)',
+    )
 
 cli_prompt_case_file = 'autotest/chat_prompt_case.yml'
 common_prompt_case_file = 'autotest/prompt_case.yml'

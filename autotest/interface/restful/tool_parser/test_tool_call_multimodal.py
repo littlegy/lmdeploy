@@ -1,8 +1,23 @@
-"""Multimodal image + tool-call REST API tests."""
+"""Multimodal image + tool-call tests (Chat completions + Responses +
+Messages)."""
 
 import pytest
+import requests
 from openai import BadRequestError
-from utils.constant import CAPPED_MAX_COMPLETION_TOKENS
+from utils.anthropic_messages import (
+    SEARCH_TOOL_ANTHROPIC,
+    USER_ASK_WEATHER_DALLAS_VLM,
+    WEATHER_TOOL_ANTHROPIC,
+    assert_success_message_json,
+    assert_weather_tool_city_state,
+)
+from utils.constant import BASE_URL, CAPPED_MAX_COMPLETION_TOKENS, THINKING_MAX_COMPLETION_TOKENS
+from utils.gateway_compat import responses_tool_choice_kwargs
+from utils.restful_return_check import (
+    assert_responses_batch_return,
+    deployed_model_name,
+    responses_output_text,
+)
 from utils.tool_reasoning_definitions import (
     SEARCH_TOOL,
     WEATHER_TOOL,
@@ -20,6 +35,7 @@ from utils.tool_reasoning_definitions import (
 )
 
 from .conftest import (
+    MESSAGES_ASKING_FOR_WEATHER,
     MM_IMAGE_MEDIA_TYPES,
     MM_TEST_IMAGE_BEIJING,
     MM_TEST_IMAGE_POSE,
@@ -44,6 +60,120 @@ from .conftest import (
     mm_miami_weather_messages,
     mm_weather_messages_for_media_type,
 )
+from .test_tool_call_anthropic_sdk import (
+    _http_headers,
+    _http_tool_use_blocks,
+    _sse_aggregate_tool_use_inputs,
+    _sse_tool_use_blocks,
+    _trace_anthropic_http,
+)
+from .test_tool_call_responses import (
+    _TOOLS as _RESPONSES_FLAT_TOOLS,
+)
+from .test_tool_call_responses import (
+    _WEATHER_NAME,
+    _assert_weather_function_call,
+    responses_tool_create_kwargs,
+    stream_responses_function_call,
+)
+
+_MESSAGES_URL = f'{BASE_URL}/v1/messages'
+_VLM_TOOL_MAX_TOKENS = THINKING_MAX_COMPLETION_TOKENS
+
+# Chat 深度多模在下方各类；此处仅 Responses + Messages，避免与 Basic/Choice 重复跑 chat。
+_MM_CROSS_APIS = (
+    pytest.param('responses', id='responses', marks=pytest.mark.responses),
+    pytest.param('anthropic', id='anthropic', marks=pytest.mark.anthropic),
+)
+
+
+def _anthropic_vlm_user_turn(image_url: str) -> dict:
+    return {
+        'role': 'user',
+        'content': [
+            {'type': 'text', 'text': USER_ASK_WEATHER_DALLAS_VLM},
+            {'type': 'image', 'source': {'type': 'url', 'url': image_url}},
+        ],
+    }
+
+
+def _anthropic_vlm_weather_request(image_url: str, **extra) -> dict:
+    return {
+        'model': deployed_model_name(),
+        'max_tokens': _VLM_TOOL_MAX_TOKENS,
+        'temperature': 0,
+        'system': MESSAGES_ASKING_FOR_WEATHER[0]['content'],
+        'messages': [_anthropic_vlm_user_turn(image_url)],
+        'tools': [WEATHER_TOOL_ANTHROPIC, SEARCH_TOOL_ANTHROPIC],
+        **extra,
+    }
+
+
+def _anthropic_post_messages(*, req_json: dict, stream: bool) -> requests.Response:
+    return requests.post(
+        _MESSAGES_URL,
+        headers=_http_headers(),
+        json={**req_json, 'stream': stream},
+        stream=stream,
+        timeout=180,
+    )
+
+
+def _dallas_weather_batch(base: _ToolCallTestBase, mm_api: str) -> tuple[str, dict]:
+    image_url = base._require_mm_image(MM_TEST_IMAGE_TIGER)
+    messages = mm_dallas_weather_messages(image_url)
+    if mm_api == 'responses':
+        client, model_name = base._get_client()
+        fcs = assert_responses_batch_return(
+            client.responses.create(
+                model=model_name,
+                **responses_tool_create_kwargs(tool_choice='required', input=messages),
+            ).model_dump(),
+            model_name,
+        )
+        assert fcs
+        _assert_weather_function_call(fcs[0])
+        return fcs[0]['name'], assert_arguments_parseable(fcs[0]['arguments'])
+    req = _anthropic_vlm_weather_request(image_url)
+    resp = _anthropic_post_messages(req_json=req, stream=False)
+    assert resp.status_code == 200, resp.text
+    blocks = _http_tool_use_blocks(assert_success_message_json(resp.json()))
+    assert blocks, resp.text[:400]
+    assert_weather_tool_city_state(blocks[0]['input'], ctx=f'mm_cross/{mm_api}/batch')
+    return blocks[0]['name'], blocks[0]['input']
+
+
+def _dallas_weather_stream(base: _ToolCallTestBase, mm_api: str) -> tuple[str, dict]:
+    image_url = base._require_mm_image(MM_TEST_IMAGE_TIGER)
+    messages = mm_dallas_weather_messages(image_url)
+    if mm_api == 'responses':
+        client, model_name = base._get_client()
+        fc = stream_responses_function_call(
+            client,
+            model_name,
+            **responses_tool_create_kwargs(tool_choice='required', input=messages),
+        )
+        _assert_weather_function_call(fc)
+        return fc['name'], assert_arguments_parseable(fc['arguments'])
+    req = _anthropic_vlm_weather_request(image_url)
+    resp = _anthropic_post_messages(req_json=req, stream=True)
+    assert resp.status_code == 200, resp.text
+    raw = ''.join(chunk.decode('utf-8') for chunk in resp.iter_content(chunk_size=None) if chunk)
+    _trace_anthropic_http(
+        base._log_file,
+        f'dallas_weather_stream/{mm_api}',
+        url=_MESSAGES_URL,
+        http_status=resp.status_code,
+        request_json=req,
+        response_text=raw,
+    )
+    names = [b['name'] for b in _sse_tool_use_blocks(raw)]
+    assert WEATHER_TOOL_ANTHROPIC['name'] in names, names
+    inputs = _sse_aggregate_tool_use_inputs(raw)
+    assert inputs, raw[:800]
+    assert_weather_tool_city_state(inputs[0], ctx=f'mm_cross/{mm_api}/stream')
+    return names[0], inputs[0]
+
 
 # ===========================================================================
 # Basic multimodal tool call
@@ -1118,3 +1248,163 @@ class TestToolCallMultimodalMediaTypes(_ToolCallTestBase):
             self, backend, model_case, media_type):
         parsed = self._weather_tool_call_stream_for_media_type(media_type)
         self._assert_sichuan_weather_args(parsed)
+
+
+# ===========================================================================
+# Cross-protocol: Responses + Messages (Chat → ``TestToolCallMultimodal*``)
+# ===========================================================================
+
+
+@_apply_marks_mm
+class TestToolCallMultimodalCrossProtocol(_ToolCallTestBase):
+
+    @pytest.mark.parametrize('mm_api', _MM_CROSS_APIS)
+    def test_dallas_weather_non_stream(self, backend, model_case, mm_api):
+        del backend, model_case
+        _dallas_weather_batch(self, mm_api)
+
+    @pytest.mark.parametrize('mm_api', _MM_CROSS_APIS)
+    def test_dallas_weather_stream(self, backend, model_case, mm_api):
+        del backend, model_case
+        _dallas_weather_stream(self, mm_api)
+
+    @pytest.mark.parametrize('mm_api', _MM_CROSS_APIS)
+    def test_stream_nonstream_consistency(self, backend, model_case, mm_api):
+        del backend, model_case
+        ns_name, ns_args = _dallas_weather_batch(self, mm_api)
+        s_name, s_args = _dallas_weather_stream(self, mm_api)
+        assert ns_name == s_name
+        assert ns_args == s_args
+
+    @pytest.mark.responses
+    def test_tool_choice_none_describe_image(self, backend, model_case):
+        del backend, model_case
+        image_url = self._require_mm_image(MM_TEST_IMAGE_TIGER)
+        messages = [build_multimodal_user_message('Describe this image.', image_url)]
+        client, model_name = self._get_client()
+        output = client.responses.create(
+            model=model_name,
+            input=messages,
+            temperature=0,
+            max_output_tokens=CAPPED_MAX_COMPLETION_TOKENS,
+            **responses_tool_choice_kwargs('none', _RESPONSES_FLAT_TOOLS),
+        ).model_dump()
+        fcs = assert_responses_batch_return(output, model_name)
+        assert not fcs
+        assert responses_output_text(output, require_nonempty=True).strip()
+
+    @pytest.mark.responses
+    def test_tool_choice_force_weather_tool(self, backend, model_case):
+        del backend, model_case
+        image_url = self._require_mm_image(MM_TEST_IMAGE_TIGER)
+        messages = mm_dallas_weather_messages(image_url)
+        client, model_name = self._get_client()
+        fcs = assert_responses_batch_return(
+            client.responses.create(
+                model=model_name,
+                **responses_tool_create_kwargs(
+                    tool_choice={'type': 'function', 'name': _WEATHER_NAME},
+                    input=messages,
+                ),
+            ).model_dump(),
+            model_name,
+        )
+        assert fcs
+        _assert_weather_function_call(fcs[0])
+
+    def test_anthropic_tool_choice_force_named_with_image(self, backend, model_case):
+        del backend, model_case
+        image_url = self._require_mm_image(MM_TEST_IMAGE_TIGER)
+        req = _anthropic_vlm_weather_request(
+            image_url,
+            tool_choice={'type': 'tool', 'name': WEATHER_TOOL_ANTHROPIC['name']},
+        )
+        resp = _anthropic_post_messages(req_json=req, stream=False)
+        assert resp.status_code == 200, resp.text
+        blocks = _http_tool_use_blocks(assert_success_message_json(resp.json()))
+        assert blocks[0]['name'] == WEATHER_TOOL_ANTHROPIC['name']
+        assert_weather_tool_city_state(blocks[0]['input'], ctx='cross_protocol/force_named')
+
+    def test_anthropic_tool_choice_any_with_image(self, backend, model_case):
+        del backend, model_case
+        image_url = self._require_mm_image(MM_TEST_IMAGE_TIGER)
+        req = _anthropic_vlm_weather_request(image_url, tool_choice={'type': 'any'})
+        resp = _anthropic_post_messages(req_json=req, stream=False)
+        assert resp.status_code == 200, resp.text
+        blocks = _http_tool_use_blocks(assert_success_message_json(resp.json()))
+        allowed = {WEATHER_TOOL_ANTHROPIC['name'], SEARCH_TOOL_ANTHROPIC['name']}
+        assert blocks[0]['name'] in allowed, blocks[0]['name']
+
+    @pytest.mark.parametrize('mm_api', _MM_CROSS_APIS)
+    def test_tool_result_followup_after_image_tool_use(self, backend, model_case, mm_api):
+        del backend, model_case
+        image_url = self._require_mm_image(MM_TEST_IMAGE_TIGER)
+        messages = mm_dallas_weather_messages(image_url)
+        followup_text = 'Sunny, 98F in Dallas, TX.'
+        if mm_api == 'responses':
+            client, model_name = self._get_client()
+            fc = assert_responses_batch_return(
+                client.responses.create(
+                    model=model_name,
+                    **responses_tool_create_kwargs(
+                        tool_choice={'type': 'function', 'name': _WEATHER_NAME},
+                        input=messages,
+                    ),
+                ).model_dump(),
+                model_name,
+            )[0]
+            _assert_weather_function_call(fc)
+            follow = client.responses.create(
+                model=model_name,
+                input=[
+                    *messages,
+                    {
+                        'type': 'function_call',
+                        'call_id': fc['call_id'],
+                        'name': fc['name'],
+                        'arguments': fc['arguments'],
+                    },
+                    {
+                        'type': 'function_call_output',
+                        'call_id': fc['call_id'],
+                        'output': followup_text,
+                    },
+                ],
+                temperature=0,
+                max_output_tokens=CAPPED_MAX_COMPLETION_TOKENS,
+                **responses_tool_choice_kwargs('none', _RESPONSES_FLAT_TOOLS),
+            ).model_dump()
+            assert not assert_responses_batch_return(follow, model_name)
+            text = responses_output_text(follow, require_nonempty=True)
+            assert '98' in text or 'Dallas' in text
+            return
+        req = _anthropic_vlm_weather_request(image_url)
+        resp = _anthropic_post_messages(req_json=req, stream=False)
+        assert resp.status_code == 200, resp.text
+        tu = _http_tool_use_blocks(assert_success_message_json(resp.json()))[0]
+        follow_req = _anthropic_vlm_weather_request(image_url)
+        follow_req['messages'] = [
+            _anthropic_vlm_user_turn(image_url),
+            {
+                'role': 'assistant',
+                'content': [{
+                    'type': 'tool_use',
+                    'id': tu['id'],
+                    'name': tu['name'],
+                    'input': tu['input'],
+                }],
+            },
+            {
+                'role': 'user',
+                'content': [{
+                    'type': 'tool_result',
+                    'tool_use_id': tu['id'],
+                    'content': followup_text,
+                }],
+            },
+        ]
+        resp2 = _anthropic_post_messages(req_json=follow_req, stream=False)
+        assert resp2.status_code == 200, resp2.text
+        data2 = assert_success_message_json(resp2.json())
+        text = ''.join(b['text'] for b in data2['content'] if b['type'] == 'text')
+        assert '98' in text or 'Dallas' in text, text[:500]

@@ -18,6 +18,7 @@ h:
       suites:
       - base
       - logprob
+      - responses
       - anthropic
       extra:
         logprobs-mode: raw_logprobs
@@ -25,6 +26,7 @@ h:
       suites:
       - base
       - logprob
+      - responses
       - anthropic
       extra:
         logprobs-mode: raw_logprobs

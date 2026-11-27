@@ -18,16 +18,22 @@ a100:
       suites:
       - base
       - logprob
+      - responses
       - anthropic
+      - toolcall
       extra:
         logprobs-mode: raw_logprobs
+        tool-call-parser: qwen3coder
     turbomind:
       suites:
       - base
       - logprob
+      - responses
       - anthropic
+      - toolcall
       extra:
         logprobs-mode: raw_logprobs
+        tool-call-parser: qwen3coder
   quantization:
     pytorch:
     - kvint8
@@ -49,9 +55,12 @@ h:
       suites:
       - base
       - logprob
+      - responses
       - anthropic
+      - toolcall
       extra:
         logprobs-mode: raw_logprobs
+        tool-call-parser: qwen3coder
   quantization:
     pytorch:
     - kvint8

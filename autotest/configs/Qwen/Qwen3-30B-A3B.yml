@@ -26,17 +26,21 @@ a100:
       - base
       - logprob
       - experts
+      - responses
       - anthropic
       extra:
         logprobs-mode: raw_logprobs
+        enable-prefix-caching: true
         enable-return-routed-experts: true
     turbomind:
       suites:
       - base
       - logprob
+      - responses
       - anthropic
       extra:
         logprobs-mode: raw_logprobs
+        enable-prefix-caching: true
   quantization:
     turbomind:
     - kvint8
@@ -68,17 +72,21 @@ h:
       - base
       - logprob
       - experts
+      - responses
       - anthropic
       extra:
         logprobs-mode: raw_logprobs
+        enable-prefix-caching: true
         enable-return-routed-experts: true
     turbomind:
       suites:
       - base
       - logprob
+      - responses
       - anthropic
       extra:
         logprobs-mode: raw_logprobs
+        enable-prefix-caching: true
   quantization:
     turbomind:
     - kvint8

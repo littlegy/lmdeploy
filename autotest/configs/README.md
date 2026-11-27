@@ -189,8 +189,9 @@ is enabled.
 Suites:
 
 - `base` — chat/completions basic cases; generate without logprob/experts
-- `logprob` — generate logprob cases
+- `logprob` — `/generate` logprob cases and Chat/Completions `@pytest.mark.logprob` cases (interface passes `-m 'not logprob'` when this suite is omitted on the phase)
 - `experts` — generate routed-experts cases
+- `responses` — `interface/restful/test_restful_responses_v1.py` (chat/vl rows; same launch profile as `base` when bundled)
 - `anthropic` — Anthropic Messages HTTP + SDK smoke (chat protocol models from yaml). Share a profile with `base`/`logprob` when `extra` matches; otherwise its own profile **without** `tool-call-parser` / `reasoning-parser`.
 - `toolcall` — `interface/restful/tool_parser/` (requires `tool-call-parser` in yaml `extra`; add `enable-return-routed-experts: true` when toolcall includes `@experts` cases)
 - `reasoning` — `interface/restful/reasoning_parser/` (requires `reasoning-parser` in yaml `extra`)

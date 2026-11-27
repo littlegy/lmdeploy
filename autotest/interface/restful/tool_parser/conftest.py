@@ -128,6 +128,22 @@ def is_mm_tool_call_capable(model_case: str) -> bool:
     return any(marker.lower() in name for marker in _MM_TOOL_CALL_MODEL_MARKERS)
 
 
+def skip_unless_vlm_model(model_case: str) -> None:
+    """Protocol-only multimodal cases (no tools): native VL model_case
+    names."""
+    if not is_mm_tool_call_capable(model_case):
+        pytest.skip(
+            f'model {model_case!r} is not treated as vision-capable for multimodal protocol tests')
+
+
+def require_mm_image_url(config, filename: str = MM_TEST_IMAGE_TIGER) -> str:
+    """Local image under ``config['resource_path']`` or pytest.skip."""
+    image_url = resolve_mm_image_url(config, filename)
+    if image_url is None:
+        pytest.skip(f'Missing multimodal image {filename!r} under resource_path')
+    return image_url
+
+
 def is_mm_video_unsupported(model_case: str) -> bool:
     """Intern-S1 family (incl.
 

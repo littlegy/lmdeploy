@@ -20,16 +20,22 @@ a100:
       suites:
       - base
       - logprob
+      - responses
       - anthropic
+      - toolcall
       extra:
         logprobs-mode: raw_logprobs
+        tool-call-parser: qwen3
     turbomind:
       suites:
       - base
       - logprob
+      - responses
       - anthropic
+      - toolcall
       extra:
         logprobs-mode: raw_logprobs
+        tool-call-parser: qwen3
 h:
 - model_type:
   - chat
@@ -51,13 +57,19 @@ h:
       suites:
       - base
       - logprob
+      - responses
       - anthropic
+      - toolcall
       extra:
         logprobs-mode: raw_logprobs
+        tool-call-parser: qwen3
     turbomind:
       suites:
       - base
       - logprob
+      - responses
       - anthropic
+      - toolcall
       extra:
         logprobs-mode: raw_logprobs
+        tool-call-parser: qwen3

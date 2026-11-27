@@ -33,7 +33,7 @@ from utils.config_utils import get_config
 from utils.constant import BASE_URL, THINKING_MAX_COMPLETION_TOKENS
 from utils.restful_return_check import deployed_model_name
 
-from .conftest import _apply_marks, _ToolCallTestBase
+from .conftest import _apply_marks, _ToolCallTestBase, skip_unless_vlm_model
 
 ANTHROPIC_VERSION = '2023-06-01'
 
@@ -79,27 +79,6 @@ def _eval_resource_file(filename: str) -> str:
     p = os.path.join(_eval_resource_path(), filename)
     assert os.path.isfile(p), f'missing offline eval resource {filename!r}: {p}'
     return p
-
-
-def _model_likely_supports_anthropic_vlm(model_name: str) -> bool:
-    m = model_name.upper()
-    return any(
-        needle in m
-        for needle in (
-            'VL',
-            'INTERNVL',
-            'INTERN-VL',
-            'QWEN-VL',
-            'QWEN2-VL',
-            'QWEN2.5-VL',
-            'QWEN3.5',
-            'MINICPM-V',
-            'LLAVA',
-            'COGVLM',
-            'XCOMPOSER',
-            'INTERNXCOMPOSER',
-            'INTERN-S',
-        ))
 
 
 def _http_headers() -> dict[str, str]:
@@ -548,10 +527,8 @@ class TestAnthropicHttpToolMessages(_ToolCallTestBase):
         """``tools`` + user ``content`` blocks with ``image`` (VLM matrix only;
         same tool contract as text-only)."""
 
+        skip_unless_vlm_model(model_case)
         model_name = deployed_model_name()
-        if not _model_likely_supports_anthropic_vlm(model_name):
-            pytest.skip(f'model {model_name!r} is not treated as vision-capable for this test')
-
         image_path = _eval_resource_file(_EVAL_IMAGE_TIGER)
         url = f'{BASE_URL}/v1/messages'
         req_json = {
@@ -590,10 +567,8 @@ class TestAnthropicHttpToolMessages(_ToolCallTestBase):
         """Streaming ``tools`` + user image URL (VLM): SSE must still surface
         ``tool_use``."""
 
+        skip_unless_vlm_model(model_case)
         model_name = deployed_model_name()
-        if not _model_likely_supports_anthropic_vlm(model_name):
-            pytest.skip(f'model {model_name!r} is not treated as vision-capable for this test')
-
         image_path = _eval_resource_file(_EVAL_IMAGE_TIGER)
         url = f'{BASE_URL}/v1/messages'
         req_json = {
@@ -630,10 +605,8 @@ class TestAnthropicHttpToolMessages(_ToolCallTestBase):
         """Align with RESTful ``test_messages_user_image_base64_stream``: SSE
         text names the solid color."""
 
+        skip_unless_vlm_model(model_case)
         model_name = deployed_model_name()
-        if not _model_likely_supports_anthropic_vlm(model_name):
-            pytest.skip(f'model {model_name!r} is not treated as vision-capable for this test')
-
         url = f'{BASE_URL}/v1/messages'
         req_json = {
             'model': model_name,
@@ -1142,10 +1115,7 @@ class TestAnthropicSdkToolCall(_ToolCallTestBase):
         assert WEATHER_TOOL_ANTHROPIC['name'] in names, names
 
     def test_tool_non_stream_weather_with_user_image_url(self, backend, model_case):
-        model_name = deployed_model_name()
-        if not _model_likely_supports_anthropic_vlm(model_name):
-            pytest.skip(f'model {model_name!r} is not treated as vision-capable for this test')
-
+        skip_unless_vlm_model(model_case)
         image_path = _eval_resource_file(_EVAL_IMAGE_TIGER)
         msg = asyncio.run(_async_messages_tool_non_stream_with_user_image(self._log_file, image_path))
         assert msg.stop_reason == 'tool_use'
@@ -1154,10 +1124,7 @@ class TestAnthropicSdkToolCall(_ToolCallTestBase):
         assert_weather_tool_city_state(tool_blocks[0].input, ctx='test_tool_non_stream_weather_with_user_image_url')
 
     def test_tool_non_stream_weather_with_user_image_base64(self, backend, model_case):
-        model_name = deployed_model_name()
-        if not _model_likely_supports_anthropic_vlm(model_name):
-            pytest.skip(f'model {model_name!r} is not treated as vision-capable for this test')
-
+        skip_unless_vlm_model(model_case)
         msg = asyncio.run(_async_messages_tool_non_stream_with_user_image_base64(self._log_file))
         assert msg.stop_reason == 'tool_use'
         tool_blocks = _sdk_tool_use_blocks(msg)
@@ -1170,10 +1137,7 @@ class TestAnthropicSdkToolCall(_ToolCallTestBase):
     def test_sdk_stream_vlm_user_image_base64_solid_color(self, backend, model_case):
         """Check that streaming output identifies the one-pixel red image."""
 
-        model_name = deployed_model_name()
-        if not _model_likely_supports_anthropic_vlm(model_name):
-            pytest.skip(f'model {model_name!r} is not treated as vision-capable for this test')
-
+        skip_unless_vlm_model(model_case)
         kind, payload = asyncio.run(_async_vlm_base64_solid_color_stream(self._log_file))
         ctx = f'test_sdk_stream_vlm_user_image_base64_solid_color/{kind}'
         _assert_redish_color_in_text(payload, ctx=ctx)
