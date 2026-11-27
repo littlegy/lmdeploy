@@ -724,6 +724,7 @@ class TestRestfulOpenAI:
             all_chunks[-3:],
         )
 
+    @pytest.mark.prefix_cache
     def test_prefix_cache_hit(self, backend, model_case, openai_client_and_model):
         del backend, model_case, openai_client_and_model
         assert_prefix_cache_hit(BASE_URL)

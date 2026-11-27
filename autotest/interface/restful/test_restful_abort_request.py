@@ -146,14 +146,19 @@ def _post_abort_all_or_skip() -> None:
     assert abort_r.status_code == 200, f'abort_request abort_all: {abort_r.status_code} {abort_r.text!r}'
 
 
+def _abort_probe_requests_logprobs() -> bool:
+    return os.environ.get('AUTOTEST_LOGPROBS_ENABLED', '').strip() == '1'
+
+
 def _assert_session_reusable_after_abort(model_name: str, session_id: int) -> None:
+    probe_logprobs = _abort_probe_requests_logprobs()
     last = None
     for _ in range(_SESSION_RETRY):
         last = _chat_non_stream(
             model_name,
             session_id,
             max_tokens=16,
-            logprobs=True,
+            logprobs=probe_logprobs,
             top_logprobs=_POST_ABORT_LOGPROBS_NUM,
         )
         if last.status_code == 200:
@@ -162,7 +167,7 @@ def _assert_session_reusable_after_abort(model_name: str, session_id: int) -> No
             assert_chat_completions_batch_return(
                 data,
                 model_name,
-                check_logprobs=True,
+                check_logprobs=probe_logprobs,
                 logprobs_num=_POST_ABORT_LOGPROBS_NUM,
             )
             return

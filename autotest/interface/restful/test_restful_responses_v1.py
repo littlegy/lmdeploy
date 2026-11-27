@@ -355,6 +355,7 @@ class TestRestfulOpenAIResponses:
         assert text_a == text_b, fail_msg(
             'top_k=1 同参两次输出应一致', (text_a[:120], text_b[:120]))
 
+    @pytest.mark.prefix_cache
     def test_prefix_cache_hit(self, backend, model_case, openai_client_and_model):
         del backend, model_case
         _, model_name = openai_client_and_model

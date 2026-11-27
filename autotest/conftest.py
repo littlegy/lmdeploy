@@ -24,6 +24,10 @@ def pytest_configure(config):
         'markers',
         'logprob: requires interface logprob suite (--logprobs-mode on api_server)',
     )
+    config.addinivalue_line(
+        'markers',
+        'prefix_cache: requires enable-prefix-caching on api_server for this interface phase',
+    )
 
 cli_prompt_case_file = 'autotest/chat_prompt_case.yml'
 common_prompt_case_file = 'autotest/prompt_case.yml'

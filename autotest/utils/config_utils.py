@@ -947,9 +947,21 @@ def derive_rest_logprob_marker(suites: list[str] | set[str], backend: str) -> st
     ``@pytest.mark.logprob`` cases run only when yaml enables the ``logprob``
     suite on this launch phase (same rule as ``derive_generate_marker``).
     """
+    return derive_rest_protocol_marker(suites, backend, extra_params=None)
+
+
+def derive_rest_protocol_marker(
+        suites: list[str] | set[str],
+        backend: str,
+        extra_params: dict[str, Any] | None,
+) -> str:
+    """Pytest ``-m`` for Chat / Completions / Responses (and Anthropic prefix)."""
     parts = [f'not not_{backend}']
     if 'logprob' not in set(suites):
         parts.append('not logprob')
+    extra = extra_params or {}
+    if extra.get('enable-prefix-caching') is None:
+        parts.append('not prefix_cache')
     return ' and '.join(parts)
 
 

@@ -362,6 +362,7 @@ class TestRestfulOpenAICompletions:
         )
         assert_chat_sse_stream_ends_with_done(resp)
 
+    @pytest.mark.prefix_cache
     def test_prefix_cache_hit(self, backend, model_case, openai_client_and_model):
         del backend, model_case
         _, model_name = openai_client_and_model

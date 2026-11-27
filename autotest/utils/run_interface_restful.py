@@ -12,7 +12,7 @@ from pathlib import Path
 import allure
 from utils.config_utils import (
     derive_generate_marker,
-    derive_rest_logprob_marker,
+    derive_rest_protocol_marker,
     get_case_str_by_config,
     get_restful_protocol_model_candidates,
     get_workerid,
@@ -183,7 +183,8 @@ def _run_interface_suites(
         if phase_suites
         else (run_config.get('generate_marker') or f'not not_{backend}')
     )
-    protocol_marker = derive_rest_logprob_marker(phase_suites, backend)
+    protocol_marker = derive_rest_protocol_marker(
+        phase_suites, backend, run_config.get('extra_params') or {})
     n_workers = _suite_workers()
     log_dir = config.get('log_path') or str(_AUTOTEST_ROOT)
     timestamp = time.strftime('%Y%m%d_%H%M%S')
@@ -226,6 +227,9 @@ def _run_interface_suites(
     if py_path:
         pieces.append(py_path)
     env['PYTHONPATH'] = os.pathsep.join(pieces)
+    phase_extra = run_config.get('extra_params') or {}
+    if phase_extra.get('logprobs-mode') is not None:
+        env['AUTOTEST_LOGPROBS_ENABLED'] = '1'
 
     k_expr = _pytest_k_expr(model, backend)
     failures: list[str] = []
@@ -236,7 +240,7 @@ def _run_interface_suites(
         # Exclude Anthropic /v1/messages toolcall cases (proxy returns 404).
         toolcall_marker += ' and not experts and not anthropic'
 
-    anthropic_marker = f'anthropic and not not_{backend}'
+    anthropic_marker = f'anthropic and {protocol_marker}'
 
     suite_map = [
         (

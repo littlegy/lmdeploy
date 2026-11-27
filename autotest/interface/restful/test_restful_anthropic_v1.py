@@ -876,6 +876,7 @@ class TestRestfulAnthropicV1:
         assert len(re.findall(r'[\u4e00-\u9fff]', assembled)) >= 2, fail_msg(
             '中文流式应含汉字', assembled[:300])
 
+    @pytest.mark.prefix_cache
     def test_messages_prefix_cache_hit(self, backend, model_case):
         del backend, model_case
         body = {

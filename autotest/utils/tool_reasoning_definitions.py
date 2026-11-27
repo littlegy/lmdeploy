@@ -87,6 +87,21 @@ WEATHER_TOOL = {
     },
 }
 
+MESSAGES_HELLO = [
+    {
+        'role': 'system',
+        'content': (
+            'You are a helpful assistant with access to tools. '
+            'Call the required tool immediately; do not explain first. '
+            'Use the web_search tool when asked to look something up.'
+        ),
+    },
+    {
+        'role': 'user',
+        'content': 'Search the web for the latest news about AI.',
+    },
+]
+
 SEARCH_TOOL = {
     'type': 'function',
     'function': {
