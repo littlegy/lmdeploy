@@ -102,13 +102,23 @@ def start_openai_service(config, run_config, worker_id, timeout: int = 1200):
     start_timeout = timeout
 
     time.sleep(5)
-    for i in range(start_timeout):
+    result = False
+    last_wait_log = start_time
+    for _ in range(start_timeout):
         time.sleep(1)
         end_time = int(time.time())
         total_time = end_time - start_time
         result = health_check(http_url, case_name)
-        if result or total_time >= start_timeout:
+        if result:
             break
+        if total_time >= start_timeout:
+            break
+        if end_time - last_wait_log >= 30:
+            print(
+                f'waiting for api_server health ({case_name} @ {http_url}): {total_time}s',
+                flush=True,
+            )
+            last_wait_log = end_time
         try:
             # Check if process is still running
             return_code = startRes.wait(timeout=1)  # Small timeout to check status
@@ -116,11 +126,22 @@ def start_openai_service(config, run_config, worker_id, timeout: int = 1200):
                 with open(server_log) as f:
                     content = f.read()
                     print(content)
+                file.close()
                 return 0, content
         except subprocess.TimeoutExpired:
             continue
     file.close()
     allure.attach.file(server_log, name=server_log, attachment_type=allure.attachment_type.TEXT)
+    if not result:
+        with open(server_log) as f:
+            content = _sanitize_server_log(f.read())
+        print(
+            f'health_check failed for {case_name} after {int(time.time()) - start_time}s; '
+            f'see {server_log}',
+            flush=True,
+        )
+        stop_restful_api(pid, startRes)
+        return 0, content or 'health_check failed'
     return pid, ''
 
 
@@ -224,15 +245,25 @@ def open_chat_test(log_path, case_name, case_info, url):
     return result, restful_log, msg
 
 
-def health_check(url, model_name):
+def health_check(url, model_name: str) -> bool:
+    """Probe chat on the api_server ``--model-name`` (``MODEL`` env is weights path, not served id)."""
     try:
-        client, model_name_current = get_client_and_model(url)
+        from openai import OpenAI
+
+        from utils.gateway_compat import chat_thinking_off_extra_body
+        from utils.http_timeout import openai_client_timeout
+
+        client = OpenAI(
+            api_key=os.environ.get('API_KEY', 'YOUR_API_KEY'),
+            base_url=f'{url.rstrip("/")}/v1',
+            timeout=openai_client_timeout(),
+        )
         response = client.chat.completions.create(
             model=model_name,
             messages=[{'role': 'user', 'content': '你好'}],
-            extra_body={'top_k': 1},
+            extra_body={**chat_thinking_off_extra_body(), 'top_k': 1},
         )
-        return model_name == model_name_current and response.choices is not None
+        return bool(response.choices)
     except Exception:
         return False
 

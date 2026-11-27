@@ -1051,9 +1051,6 @@ def get_client_and_model(base_url: str | None = None) -> tuple[OpenAI, str]:
         base_url=f'{url.rstrip("/")}/v1',
         timeout=openai_client_timeout(),
     )
-    preferred = os.environ.get('MODEL', '').strip()
-    if preferred:
-        return client, preferred
     models = client.models.list().data
     if not models:
         raise RuntimeError(f'No model returned from GET {url}/v1/models')
