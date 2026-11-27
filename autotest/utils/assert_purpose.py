@@ -1,4 +1,5 @@
-"""Shared assert failure messages for functional tests (pytest-visible 断言目的)."""
+"""Shared assert failure messages for functional tests (pytest-visible
+断言目的)."""
 
 from __future__ import annotations
 
@@ -14,7 +15,8 @@ def fail_msg(purpose: str, detail: Any = '') -> str:
 
 
 def assert_helper(purpose: str, fn: Callable[..., Any], /, *args: Any, **kwargs: Any) -> Any:
-    """Run ``fn(*args, **kwargs)``; on ``AssertionError``, prepend *purpose*."""
+    """Run ``fn(*args, **kwargs)``; on ``AssertionError``, prepend
+    *purpose*."""
     try:
         return fn(*args, **kwargs)
     except AssertionError as exc:

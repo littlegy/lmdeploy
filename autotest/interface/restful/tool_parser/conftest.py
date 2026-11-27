@@ -1,8 +1,15 @@
-import os
 
 import pytest
 from utils.config_utils import get_tool_reasoning_model_list, model_enables_return_routed_experts
 from utils.constant import BACKEND_LIST, CAPPED_MAX_COMPLETION_TOKENS
+from utils.mm_restful import (
+    build_multimodal_user_message,
+    is_mm_tool_call_capable,
+    is_mm_video_unsupported,
+    mm_media_fixture_filename,
+    resolve_mm_image_url,
+    resolve_mm_resource_path,
+)
 from utils.tool_reasoning_definitions import (
     CONCURRENT_WEATHER_TOOL,
     DEFAULT_TOOL_CALL_CONCURRENCY,
@@ -20,20 +27,6 @@ from utils.tool_reasoning_definitions import (
 )
 
 from lmdeploy.serve.processors.multimodal import MULTIMODAL_TYPES
-from utils.mm_restful import (
-    MM_TEST_IMAGE_BEIJING,
-    MM_TEST_IMAGE_POSE,
-    MM_TEST_IMAGE_TIGER,
-    MM_TEST_VIDEO,
-    build_multimodal_user_message,
-    is_mm_tool_call_capable,
-    is_mm_video_unsupported,
-    mm_file_to_data_url,
-    mm_media_fixture_filename,
-    resolve_mm_image_url,
-    resolve_mm_resource_path,
-    skip_unless_vlm_model,
-)
 
 # ---------------------------------------------------------------------------
 # Marks

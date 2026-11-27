@@ -1,4 +1,16 @@
 import pytest
+from interface.restful.tool_parser.conftest import (
+    MESSAGES_ASKING_FOR_CALCULATION,
+    MESSAGES_ASKING_FOR_WEATHER,
+    MESSAGES_ASKING_FOR_WEATHER_CN,
+    MESSAGES_NO_TOOL_NEEDED,
+    MESSAGES_PARALLEL_MIXED,
+    MESSAGES_PARALLEL_WEATHER,
+    MULTI_TURN_WEATHER_CITIES,
+    _apply_experts_marks,
+    _apply_marks,
+    _ToolCallTestBase,
+)
 from utils.config_utils import ROUTED_EXPERTS_UNSUPPORTED_SKIP
 from utils.constant import CAPPED_MAX_COMPLETION_TOKENS
 from utils.tool_reasoning_definitions import (
@@ -22,19 +34,6 @@ from utils.tool_reasoning_definitions import (
     validate_routed_experts_length,
     validate_stream_tool_call_result,
     validate_stream_tool_call_with_tokens,
-)
-
-from interface.restful.tool_parser.conftest import (
-    MESSAGES_ASKING_FOR_CALCULATION,
-    MESSAGES_ASKING_FOR_WEATHER,
-    MESSAGES_ASKING_FOR_WEATHER_CN,
-    MESSAGES_NO_TOOL_NEEDED,
-    MESSAGES_PARALLEL_MIXED,
-    MESSAGES_PARALLEL_WEATHER,
-    MULTI_TURN_WEATHER_CITIES,
-    _apply_experts_marks,
-    _apply_marks,
-    _ToolCallTestBase,
 )
 
 # ===========================================================================

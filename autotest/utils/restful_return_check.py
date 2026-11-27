@@ -1026,7 +1026,8 @@ def gateway_auth_headers(
     content_type: str = 'application/json',
     anthropic_version: str | None = None,
 ) -> dict[str, str]:
-    """Headers for raw ``requests`` calls against a local api_server (no Bearer / x-api-key)."""
+    """Headers for raw ``requests`` calls against a local api_server (no Bearer
+    / x-api-key)."""
     headers: dict[str, str] = {}
     if content_type:
         headers['Content-Type'] = content_type

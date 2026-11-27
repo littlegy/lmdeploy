@@ -24,6 +24,12 @@ from utils.gateway_compat import (
     chat_thinking_off_extra_body,
     engine_top_k_extra_body,
 )
+from utils.mm_restful import (
+    build_multimodal_user_message,
+    is_mm_tool_call_capable,
+    require_mm_image_url,
+    skip_unless_vlm_model,
+)
 from utils.restful_return_check import (
     CONTEXT_LENGTH_ERROR,
     assert_chat_completions_batch_return,
@@ -47,13 +53,6 @@ from utils.restful_return_check import (
     post_chat_completions_stream_chunks,
 )
 from utils.toolkit import encode_text
-
-from utils.mm_restful import (
-    build_multimodal_user_message,
-    is_mm_tool_call_capable,
-    require_mm_image_url,
-    skip_unless_vlm_model,
-)
 
 _CHAT_COMPLETIONS_URL = f'{BASE_URL}/v1/chat/completions'
 _CHAT_MESSAGES = [{'role': 'user', 'content': 'Hi, pls intro yourself'}]

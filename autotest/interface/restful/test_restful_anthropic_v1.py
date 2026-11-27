@@ -33,6 +33,7 @@ from utils.constant import (
     THINKING_MAX_COMPLETION_TOKENS,
 )
 from utils.gateway_compat import engine_top_k_fields
+from utils.mm_restful import is_mm_tool_call_capable, skip_unless_vlm_model
 from utils.restful_return_check import (
     assert_usage_prefix_cache,
     assert_vision_tiger_text,
@@ -42,8 +43,6 @@ from utils.restful_return_check import (
     prefix_cache_pad_text,
     wire_checked_response_json,
 )
-
-from utils.mm_restful import is_mm_tool_call_capable, skip_unless_vlm_model
 
 ANTHROPIC_VERSION = '2023-06-01'
 

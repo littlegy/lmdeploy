@@ -1,4 +1,4 @@
-"""lmdeploy autotest：Chat / Completions / Responses 请求字段与 extra_body 约定。"""
+"""Lmdeploy autotest：Chat / Completions / Responses 请求字段与 extra_body 约定。"""
 
 from __future__ import annotations
 
@@ -47,7 +47,8 @@ def chat_thinking_off_extra_body(*, base_url: str | None = None) -> dict[str, An
 
 
 def chat_health_probe_payload(model_name: str) -> dict[str, Any]:
-    """Flat ``/v1/chat/completions`` body using lmdeploy ``ChatCompletionRequest`` fields."""
+    """Flat ``/v1/chat/completions`` body using lmdeploy
+    ``ChatCompletionRequest`` fields."""
     from utils.constant import thinking_forced_model_enabled
 
     payload: dict[str, Any] = {
@@ -167,7 +168,8 @@ def engine_repetition_penalty_field(repetition_penalty: float | None = None) -> 
 
 
 def engine_top_k_extra_body(top_k: int, *, thinking_off: bool = True) -> dict[str, Any]:
-    """Chat Responses 共用 top_k extra_body；Messages 用 engine_top_k_fields 写 JSON 顶栏。"""
+    """Chat Responses 共用 top_k extra_body；Messages 用 engine_top_k_fields 写 JSON
+    顶栏。"""
     sampling = chat_sampling_extra_body(top_k=top_k)
     if not thinking_off:
         return sampling

@@ -1,4 +1,10 @@
 import pytest
+from interface.restful.tool_parser.conftest import (
+    MESSAGES_ASKING_FOR_SEARCH,
+    MESSAGES_ASKING_FOR_WEATHER,
+    _apply_marks,
+    _ToolCallTestBase,
+)
 from openai import BadRequestError
 from utils.constant import CAPPED_MAX_COMPLETION_TOKENS
 from utils.tool_reasoning_definitions import (
@@ -10,8 +16,6 @@ from utils.tool_reasoning_definitions import (
     collect_stream_tool_call,
     validate_stream_tool_call_result,
 )
-
-from interface.restful.tool_parser.conftest import MESSAGES_ASKING_FOR_SEARCH, MESSAGES_ASKING_FOR_WEATHER, _apply_marks, _ToolCallTestBase
 
 # ===========================================================================
 # Basic tool call: response structure, finish_reason, field validation

@@ -4,6 +4,11 @@ import asyncio
 
 import aiohttp
 import pytest
+from interface.restful.tool_parser.conftest import (
+    MULTI_TURN_WEATHER_CITIES,
+    _apply_marks,
+    _ToolCallTestBase,
+)
 from utils.config_utils import get_tool_reasoning_model_list
 from utils.constant import BACKEND_LIST
 from utils.tool_reasoning_definitions import (
@@ -14,12 +19,6 @@ from utils.tool_reasoning_definitions import (
     collect_stream_tool_call_http_async,
     validate_reference_turn_result,
     validate_stream_tool_call_with_tokens,
-)
-
-from interface.restful.tool_parser.conftest import (
-    MULTI_TURN_WEATHER_CITIES,
-    _apply_marks,
-    _ToolCallTestBase,
 )
 
 _CLASS_MARKS_STRESS = [

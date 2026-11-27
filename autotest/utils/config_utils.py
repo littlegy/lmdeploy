@@ -955,7 +955,8 @@ def derive_rest_protocol_marker(
         backend: str,
         extra_params: dict[str, Any] | None,
 ) -> str:
-    """Pytest ``-m`` for Chat / Completions / Responses (and Anthropic prefix)."""
+    """Pytest ``-m`` for Chat / Completions / Responses (and Anthropic
+    prefix)."""
     parts = [f'not not_{backend}']
     if 'logprob' not in set(suites):
         parts.append('not logprob')
